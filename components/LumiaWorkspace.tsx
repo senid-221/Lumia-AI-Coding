@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound, Info, Paperclip, Mic, Copy, ThumbsUp, ThumbsDown, RotateCcw, Check, SlidersHorizontal, ShieldCheck, Trash2, Sun, Monitor, Keyboard } from "lucide-react";
 
 type Msg = { role:"user"|"assistant"; content:string; id:string };
+type ConversationSummary = { id:string; title:string|null; updatedAt:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
 type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account"|"about";
 const agents=[
@@ -21,6 +22,8 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
   const [conversationId,setConversationId] = useState<string>();
+  const [historyOpen,setHistoryOpen] = useState(false);
+  const [conversations,setConversations] = useState<ConversationSummary[]>([]);
   const [menu,setMenu] = useState<MenuState>("none");
   const [agent,setAgent] = useState("ai-agent");
   const [provider,setProvider] = useState("openai");
@@ -132,6 +135,28 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     finally { setBusy(false); }
   }
 
+  async function loadHistory(){
+    try{
+      const res=await fetch("/api/conversations",{cache:"no-store"});
+      if(!res.ok) throw new Error("Unable to load history");
+      const data=await res.json();
+      setConversations(data.conversations || []);
+      setHistoryOpen(true);
+    }catch{ setError("Unable to load conversation history."); }
+  }
+
+  async function openConversation(id:string){
+    try{
+      const res=await fetch("/api/chat?conversationId="+encodeURIComponent(id),{cache:"no-store"});
+      if(!res.ok) throw new Error("Unable to open conversation");
+      const data=await res.json();
+      setConversationId(data.conversation?.id);
+      setMessages((data.messages||[]).map((m:any)=>({role:m.role==="user"?"user":"assistant",content:String(m.content||""),id:String(m.id)})));
+      setHistoryOpen(false);
+      setMenu("none");
+    }catch{setError("Unable to open that conversation.");}
+  }
+
   const mainMenu: {id:MainAction; label:string; icon:React.ReactNode}[] = [
     {id:"new",label:"New task",icon:<MessageSquarePlus size={15}/>},
     {id:"services",label:"All services",icon:<LayoutGrid size={15}/>},
@@ -149,6 +174,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     setMenu("none");
     if(action==="new"){setMessages([]);setConversationId(undefined);setTask("");return;}
     if(action==="settings"){setMenu("settings");return;}
+    if(action==="history"){loadHistory();return;}
     if(action==="about"){window.location.href="/about";return;}
     const notices: Record<string,string> = {
       services:"All Services — AI coding, agents, Hacking Lab, Git, reviews and automation.",
@@ -176,6 +202,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
           <button className="selector" onClick={()=>setMenu(menu==="agent"?"none":"agent")}><span>{agent}</span><ChevronDown size={13}/></button>
         </div>
         <div className="top-right">{accountControl}</div>
+        {historyOpen&&<div className="menu-popover history-popover"><div className="menu-title">Conversation History <button className="settings-close" onClick={()=>setHistoryOpen(false)}><X size={15}/></button></div>{conversations.length===0?<div className="menu-note">No saved conversations yet.</div>:conversations.map(c=><button className="menu-item history-item" key={c.id} onClick={()=>openConversation(c.id)}><span>{c.title||"Untitled conversation"}</span><small>{new Date(c.updatedAt).toLocaleString()}</small></button>)}</div>}
         {menu==="main"&&<div className="menu-popover main-menu"><div className="menu-title">Lumia</div>{mainMenu.map(item=><button className="menu-item menu-action" key={item.id} onClick={()=>handleMainAction(item.id)}>{item.icon}<span>{item.label}</span>{item.id==="deploy"&&<span className="menu-shortcut">↗</span>}</button>)}</div>}
         {menu==="lumia"&&popup("Workspace",["lumia"],()=>{})}
         {menu==="agent"&&popup("Agent",agents,v=>setAgent(v))}
