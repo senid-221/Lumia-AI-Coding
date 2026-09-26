@@ -1,13 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { getProjectContext, upsertProjectMemory } from "./memory";
-import { openAIProvider } from "./provider";
-import { runZencoderRuntime } from "@/lib/zencode";
-import { ensureProjectWorkspace } from "./workspace";
+import { runModelProvider } from "./provider";
+import type { ModelProvider } from "./model-router";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
 
 type ContextMessage = { role: "user" | "assistant"; content: string };
-export type ProviderId = "openai" | "zencode";
+export type ProviderId = ModelProvider;
 
 export async function runAutonomousCodingTask(
   projectId: string,
@@ -49,27 +48,16 @@ export async function runAutonomousCodingTask(
     onEvent({ type: "specialist_start", role, name: SPECIALISTS[role].name });
 
     const sharedContext = [contextSummary, ...shared].filter(Boolean).join("\n\n").slice(-12000);
-    const result = provider === "zencode"
-      ? await (async () => {
-          const workspace = await ensureProjectWorkspace(projectId);
-          onEvent({ type: "thinking", detail: `Starting Zencoder ${SPECIALISTS[role].name} runtime.`, role });
-          const runtime = await runZencoderRuntime(
-            specialistPrompt(role, task, sharedContext),
-            workspace,
-            chunk => onEvent({ type: "runtime_output", role, detail: chunk.slice(-4000) })
-          );
-          onEvent({ type: "message", text: runtime.text, role });
-          return { text: runtime.text, toolCount: 1, turns: 1 };
-        })()
-      : await openAIProvider.run(
-          specialistPrompt(role, task, sharedContext),
-          effectiveHistory,
-          TOOL_DEFINITIONS.map(tool => tool as any),
-          event => onEvent({ ...event, role }),
-          specialistTurns,
-          execution.id,
-          model
-        );
+    const result = await runModelProvider(
+      provider,
+      model,
+      specialistPrompt(role, task, sharedContext),
+      effectiveHistory,
+      TOOL_DEFINITIONS.map(tool => tool as any),
+      event => onEvent({ ...event, role }),
+      specialistTurns,
+      execution.id
+    );
 
     toolCount += result.toolCount;
     turns += result.turns;
