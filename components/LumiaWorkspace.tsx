@@ -5,7 +5,7 @@ import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2 } from "lucide-react
 
 type Msg = { role:"user"|"assistant"; content:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
-const providers=["OpenAI","Anthropic","Google","Zencode"];
+const providers=["OpenAI","Zencode"];
 const models=["gpt-5.5","Sonnet 4.5","Gemini"];
 
 export default function LumiaWorkspace({ accountControl }: { accountControl: React.ReactNode }) {
@@ -46,6 +46,8 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
           const event=JSON.parse(data);
           if(event.type==="conversation") setConversationId(event.id);
           if(event.type==="delta"){ assistant += event.text; setMessages(m=>{const copy=[...m]; copy[copy.length-1]={role:"assistant",content:assistant}; return copy;}); }
+          if(event.type==="message"){ assistant = event.text || assistant; setMessages(m=>{const copy=[...m]; copy[copy.length-1]={role:"assistant",content:assistant}; return copy;}); }
+          if(event.type==="specialist_start"){ setMessages(m=>{const copy=[...m]; const current=copy[copy.length-1]; if(current?.role==="assistant" && !current.content) copy[copy.length-1]={role:"assistant",content:"Lumia "+event.name+" is working..."}; return copy;}); }
           if(event.type==="error") setError(event.error);
         }
       }
