@@ -1,9 +1,13 @@
 # Lumia Backend Rules
 
-- Understand the existing server architecture before changing it.
-- Preserve API contracts unless the task requires a contract change.
-- Validate authentication and authorization at server boundaries.
-- Validate input and handle provider/tool failures explicitly.
+Purpose: APIs, services, server logic, authentication boundaries, validation, runtime behavior, and integrations.
+
+Rules:
+- Inspect the existing server architecture before modifying it.
+- Preserve API contracts unless the task requires a change.
+- Validate input and authorization at boundaries.
 - Keep secrets server-side.
-- Use bounded timeouts, cancellation, and useful error states where applicable.
+- Handle provider, tool, timeout, cancellation, and runtime errors explicitly.
+- Keep external integrations bounded and observable.
+- Avoid unrelated backend refactors.
 - Verify backend changes with real command output.
