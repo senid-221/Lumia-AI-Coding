@@ -5,6 +5,7 @@ import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2 } from "lucide-react
 
 type Msg = { role:"user"|"assistant"; content:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
+const agents=["ai-agent","hacking-lab"];
 const providers=["OpenAI","Zencode"];
 const models=["gpt-5.5","Sonnet 4.5","Gemini"];
 
@@ -15,6 +16,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [error,setError] = useState("");
   const [conversationId,setConversationId] = useState<string>();
   const [menu,setMenu] = useState<MenuState>("none");
+  const [agent,setAgent] = useState("ai-agent");
   const [provider,setProvider] = useState("OpenAI");
   const [model,setModel] = useState("gpt-5.5");
   const [skipInstall,setSkipInstall] = useState(false);
@@ -32,7 +34,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     if (!value || busy) return;
     setTask(""); setError(""); setMessages(m=>[...m,{role:"user",content:value}]); setBusy(true);
     try {
-      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,provider:provider.toLowerCase(),model})});
+      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider:provider.toLowerCase(),model})});
       if (!res.ok || !res.body) throw new Error((await res.json().catch(()=>({}))).error || "Request failed");
       const reader = res.body.getReader(), decoder = new TextDecoder();
       let assistant = "";
@@ -60,7 +62,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   return <main className="workspace" ref={rootRef}>
     <header className="topbar">
       <div className="top-left"><button className="icon-btn" onClick={()=>setMenu(menu==="main"?"none":"main")} aria-label="Open menu"><Menu size={18}/></button><button className="selector" onClick={()=>setMenu(menu==="lumia"?"none":"lumia")}><Bot size={15}/><span>lumia</span><ChevronDown size={13}/></button><span className="slash">/</span><button className="selector" onClick={()=>setMenu(menu==="agent"?"none":"agent")}><span>ai-agent</span><ChevronDown size={13}/></button></div>
-      <div className="top-right">{accountControl}<button className="dots" onClick={()=>setMenu(menu==="main"?"none":"main")}>•••</button></div>{menu==="main"&&popup("Menu",["New task","Settings"],v=>{if(v==="New task"){setMessages([]);setConversationId(undefined)}else setMenu("settings")})}{menu==="lumia"&&popup("Workspace",["lumia"],()=>{})}{menu==="agent"&&popup("Agent",["ai-agent"],()=>{})}
+      <div className="top-right">{accountControl}<button className="dots" onClick={()=>setMenu(menu==="main"?"none":"main")}>•••</button></div>{menu==="main"&&popup("Menu",["New task","Settings"],v=>{if(v==="New task"){setMessages([]);setConversationId(undefined)}else setMenu("settings")})}{menu==="lumia"&&popup("Workspace",["lumia"],()=>{})}{menu==="agent"&&popup("Agent",agents,v=>setAgent(v))}
     </header>
     <section className="hero">
       <div className="robot-glow"><div className="robot"><Bot size={54}/></div></div>
@@ -74,7 +76,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       <div className="composer-footer">
         <div className="composer-left"><button className="pill" onClick={()=>setMenu(menu==="provider"?"none":"provider")}>{provider} <ChevronDown size={12}/></button><button className="pill" onClick={()=>setMenu(menu==="model"?"none":"model")}>{model} <ChevronDown size={12}/></button><button className="pill muted" onClick={()=>setSkipInstall(v=>!v)}>Skip Install {skipInstall?"✓":""}{!skipInstall&&<X size={12}/>}</button><button className="pill muted" onClick={()=>setTimerOn(v=>!v)}>{timerOn?"10m":"Timer off"} {timerOn&&<X size={12}/>}</button></div>
         <div className="composer-actions"><button className="icon-btn" onClick={()=>setMenu(menu==="settings"?"none":"settings")}><Settings size={17}/></button><button className="send-btn" onClick={send} disabled={busy||!task.trim()} aria-label="Send"><Send size={17}/></button></div>
-      </div>{menu==="provider"&&popup("Agent provider",providers,v=>setProvider(v))}{menu==="model"&&popup("Agent model",models,v=>setModel(v))}{menu==="settings"&&<div className="menu-popover settings-popover"><div className="menu-title">Lumia settings</div><button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button><div className="menu-note">Provider: {provider} · Model: {model}</div></div>}
+      </div>{menu==="provider"&&popup("Agent provider",providers,v=>setProvider(v))}{menu==="model"&&popup("Agent model",models,v=>setModel(v))}{menu==="settings"&&<div className="menu-popover settings-popover"><div className="menu-title">Lumia settings</div><button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button><div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {provider} · Model: {model}</div></div>}
     </section>
   </main>;
 }
