@@ -4,6 +4,8 @@ import { registerExecution, unregisterExecution } from "./execution-control";
 import { prisma } from "@/lib/prisma";
 import { hasProviderKey, modelIdForLabel } from "./model-router";
 import { LUMIA_CODING_INSTRUCTIONS } from "./policy";
+import type { SpecialistRole } from "./specialists";
+import { assertToolPermission } from "./tool-permissions";
 export type ModelProvider = "anthropic"|"openai"|"google"|"xai"|"groq";
 
 export type AgentEvent =
@@ -67,6 +69,7 @@ async function runOpenAIResponses(
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
   executionId?:string,
+  role: SpecialistRole = "coder",
   projectId?:string
 ):Promise<AgentRunResult> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -135,7 +138,6 @@ async function runOpenAIResponses(
           }
 
           assertToolPermission(role, name);
-          assertToolPermission(role, name);
           output=String(await executeTool(name,args,projectId || ""));
           onEvent({type:"tool_result",tool:name,detail:output.slice(0,4000)});
         } catch(error) {
@@ -169,6 +171,7 @@ async function runChatProvider(
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
   executionId?:string,
+  role: SpecialistRole = "coder",
   projectId?:string
 ):Promise<AgentRunResult> {
   const client = openAICompatibleClient(provider);
@@ -320,7 +323,7 @@ export async function runModelProvider(
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
   executionId?:string,
-  routingRole?:string,
+  routingRole?:SpecialistRole,
   projectId?:string
 ):Promise<AgentRunResult> {
   const selectedProvider=provider;
@@ -328,11 +331,11 @@ export async function runModelProvider(
 
   if(selectedProvider==="openai") {
     if(!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured on the server.");
-    return runOpenAIResponses(selectedModel,input,history,tools,onEvent,maxTurns,executionId,projectId);
+    return runOpenAIResponses(selectedModel,input,history,tools,onEvent,maxTurns,executionId,routingRole || "coder",projectId);
   }
 
   if(selectedProvider==="anthropic")
-    return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId,projectId);
+    return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId,routingRole || "coder",projectId);
   if(selectedProvider==="google" && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY)
     throw new Error("GEMINI_API_KEY or GOOGLE_API_KEY is not configured on the server.");
   if(selectedProvider==="xai" && !process.env.XAI_API_KEY)
@@ -340,7 +343,7 @@ export async function runModelProvider(
   if(selectedProvider==="groq" && !process.env.GROQ_API_KEY)
     throw new Error("GROQ_API_KEY is not configured on the server.");
 
-  return runChatProvider(selectedProvider,selectedModel,input,history,tools,onEvent,maxTurns,executionId,projectId);
+  return runChatProvider(selectedProvider,selectedModel,input,history,tools,onEvent,maxTurns,executionId,routingRole || "coder",projectId);
 }
 
 export const openAIProvider = {
