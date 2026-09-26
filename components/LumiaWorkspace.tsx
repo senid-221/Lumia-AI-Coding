@@ -196,7 +196,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     {id:"new",label:"New task",icon:<MessageSquarePlus size={15}/>},
     {id:"services",label:"All services",icon:<LayoutGrid size={15}/>},
     {id:"history",label:"History",icon:<History size={15}/>},
-    {id:"projects",label:"Projects",icon:<FolderPlus size={15}/>},
+    {id:"projects",label:"Projects",icon:<FolderPlus size={15}/>},\n    {id:"files",label:"Files & Editor",icon:<BookOpen size={15}/>},
     {id:"connectors",label:"Connectors",icon:<Plug size={15}/>},
     {id:"deploy",label:"Deploy",icon:<Rocket size={15}/>},
     {id:"docs",label:"Documentation",icon:<BookOpen size={15}/>},
@@ -209,7 +209,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     setMenu("none");
     if(action==="new"){setMessages([]);setConversationId(undefined);setTask("");return;}
     if(action==="settings"){setMenu("settings");return;}
-    if(action==="history"){loadHistory();return;}
+    if(action==="history"){loadHistory();return;}\n    if(action==="services"){setWorkspacePanel("activity");loadExecutions();return;}\n    if(action==="projects"){setWorkspacePanel("projects");loadProjects();return;}\n    if(action==="files"){setWorkspacePanel("files");loadFiles(".");return;}\n    if(action==="connectors"){setWorkspacePanel("connectors");loadIntegrations();return;}\n    if(action==="deploy"){setWorkspacePanel("deploy");return;}
     if(action==="about"){window.location.href="/about";return;}
     const notices: Record<string,string> = {
       services:"All Services — AI coding, agents, Hacking Lab, Git, reviews and automation.",
