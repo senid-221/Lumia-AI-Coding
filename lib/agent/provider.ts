@@ -46,7 +46,8 @@ async function runChatProvider(
   tools:any[],
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
-  executionId?:string
+  executionId?:string,
+  routingRole?:string
 ):Promise<AgentRunResult> {
   const client = openAICompatibleClient(provider);
   const messages:any[] = [
@@ -199,7 +200,7 @@ export async function runModelProvider(
   let selectedModel=model || "";
 
   if(provider==="zencode") {
-    const routed=resolveZencoderMode(model || "auto");
+    const routed=resolveZencoderMode(model || "auto", routingRole);
     selectedProvider=routed.provider;
     selectedModel=routed.model;
     onEvent({type:"thinking",detail:"Zencoder "+routed.mode+" routed this task to "+routed.label+" ("+routed.provider+")."});
