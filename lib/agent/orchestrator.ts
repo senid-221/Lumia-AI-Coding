@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getProjectContext, upsertProjectMemory } from "./memory";
-import { openAIProvider } from "./provider";
+import { openAIProvider, runOpenAICompatible } from "./provider";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
 import { isExecutionActive } from "./execution-control";
@@ -27,25 +27,36 @@ export async function runAutonomousCodingTask(
     ? await prisma.agentExecution.update({where:{id:existingExecutionId},data:{status:"RUNNING",cancelRequested:false,heartbeatAt:new Date(),error:null,finishedAt:null}})
     : await prisma.agentExecution.create({data:{projectId,conversationId,status:"RUNNING",prompt}});
   const shared:string[]=[];
-  let toolCount=0;
-  let turns=0;
-
-  const roleRun=async(role:SpecialistRole,task:string)=>{
+  let toolCoun  const roleRun=async(role:SpecialistRole,task:string)=>{
     onEvent({type:"specialist_start",role,name:SPECIALISTS[role].name});
     if(!isExecutionActive(execution.id)) throw new Error("Execution cancelled.");
-    const result=await openAIProvider.run(
-      specialistPrompt(role,task,shared.join("\n\n").slice(-12000)),
-      effectiveHistory,
-      TOOL_DEFINITIONS.map(tool=>tool as any),
-      event=>onEvent({...event,role}),
-      specialistTurns,
-      execution.id
-    );
+    const sharedContext=shared.join("\n\n").slice(-12000);
+    const result=provider==="zencode"
+      ? await runOpenAICompatible(
+          getZencodeClient(),
+          specialistPrompt(role,task,sharedContext),
+          effectiveHistory,
+          TOOL_DEFINITIONS.map(tool=>tool as any),
+          event=>onEvent({...event,role}),
+          specialistTurns,
+          execution.id
+        )
+      : await openAIProvider.run(
+          specialistPrompt(role,task,sharedContext),
+          effectiveHistory,
+          TOOL_DEFINITIONS.map(tool=>tool as any),
+          event=>onEvent({...event,role}),
+          specialistTurns,
+          execution.id
+        );
     toolCount+=result.toolCount;
     turns+=result.turns;
     shared.push(SPECIALISTS[role].name+": "+result.text);
     onEvent({type:"specialist_complete",role,name:SPECIALISTS[role].name});
     return result.text;
+  };
+
+n result.text;
   };
 
   try{
