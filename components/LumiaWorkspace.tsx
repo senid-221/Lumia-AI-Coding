@@ -31,6 +31,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [liveProviders,setLiveProviders] = useState<ProviderOption[]>([]);
   const [modelsLoading,setModelsLoading] = useState(true);
   const [modelSearch,setModelSearch] = useState("");
+  const [modelRefresh,setModelRefresh] = useState(0);
   const rootRef=useRef<HTMLElement>(null);
   const providerEntry=liveProviders.find(p=>p.id===provider);
   const models=providerEntry?.models || [];
@@ -138,7 +139,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       </div>
       {menu==="provider"&&<div className="menu-popover"><div className="menu-title">Select provider</div>{providerIds.map(id=><button className="menu-item" key={id} onClick={()=>{setProvider(id);setModel("");setModelSearch("");setMenu("none");}}>{providerNames[id]}{liveProviders.find(p=>p.id===id)?.configured===false?" · API key missing":""}</button>)}</div>}
       {menu==="model"&&<div className="menu-popover model-popover" style={{maxHeight:360,overflowY:"auto",minWidth:260}}>
-        <div className="menu-title">{providerNames[provider]} models</div>
+        <div className="menu-title">{providerNames[provider]} models <button className="menu-item" style={{display:"inline-block",float:"right",padding:"2px 6px"}} onClick={()=>setModelRefresh(v=>v+1)}>↻</button></div>
         <input aria-label="Search models" placeholder="Search models..." value={modelSearch} onChange={e=>setModelSearch(e.target.value)} style={{width:"100%",padding:8,marginBottom:8}}/>
         {modelsLoading?<div className="menu-note">Loading models...</div>:providerEntry?.error?<div className="menu-note">{providerEntry.error}</div>:models.length===0?<div className="menu-note">No models returned. Check this provider's API key.</div>:models.filter(m=>(m.label+" "+m.id).toLowerCase().includes(modelSearch.toLowerCase())).map(m=><button className="menu-item" key={m.id} onClick={()=>{setModel(m.id);setMenu("none");setModelSearch("");}}>{m.label}{m.label!==m.id?<small style={{display:"block",opacity:.6}}>{m.id}</small>:null}</button>)}
       </div>}
