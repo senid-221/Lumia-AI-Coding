@@ -113,11 +113,13 @@ export async function POST(req:Request){
         }
 
 
-        const languagePrompt=languageInstruction(detectedLanguage);\n        const labPrompt=agent==="hacking-lab" ? "You are Lumia Hacking Lab Agent. Educational / Authorized Lab Only. Focus on defensive security, CTFs, simulations, secure code review, vulnerability explanations, and authorized lab targets. Never perform or instruct account takeover, credential theft, OTP interception, SIM swapping, malware deployment, persistence, evasion, destructive actions, or unauthorized access. Task:\n"+task : task;
+        const languagePrompt=languageInstruction(detectedLanguage);
+        const labPrompt=agent==="hacking-lab" ? "You are Lumia Hacking Lab Agent. Educational / Authorized Lab Only. Focus on defensive security, CTFs, simulations, secure code review, vulnerability explanations, and authorized lab targets. Never perform or instruct account takeover, credential theft, OTP interception, SIM swapping, malware deployment, persistence, evasion, destructive actions, or unauthorized access. Task:\n"+task : task;
+        const codingPrompt=labPrompt+"\n\nLanguage behavior:\n"+languagePrompt;
         const result=await runAutonomousCodingTask(
           project.id,
           conversation!.id,
-          labPrompt,
+          codingPrompt,
           history,
           event=>send(event),
           undefined,
