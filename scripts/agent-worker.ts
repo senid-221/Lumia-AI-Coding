@@ -11,7 +11,7 @@ async function processJob(){
   const execution=await prisma.agentExecution.findUnique({where:{id:job.executionId}});
   if(!execution){
     await prisma.agentExecution.create({data:{id:job.executionId,projectId:job.projectId,conversationId:job.conversationId,status:"QUEUED",prompt:job.prompt}});
-  }else if(["CANCELLED","SUCCEEDED"].includes(execution.status)){
+  }else if(execution.cancelRequested || ["CANCELLED","SUCCEEDED"].includes(execution.status)){
     return true;
   }
   await prisma.agentExecution.updateMany({where:{id:job.executionId},data:{status:"RUNNING",queueAttempts:{increment:1},heartbeatAt:new Date()}});
