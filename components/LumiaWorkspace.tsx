@@ -73,7 +73,8 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       while (true) {
         const {value:chunk,done}=await reader.read(); if(done) break;
         const text=decoder.decode(chunk,{stream:true});
-        for (const line of text.split("\n")) {
+        for (const line of text.split("
+")) {
           if (!line.startsWith("data: ")) continue;
           const data=line.slice(6); if(data==="[DONE]") continue;
           const event=JSON.parse(data);
