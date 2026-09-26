@@ -153,10 +153,17 @@ export async function GET() {
             Authorization: `Bearer ${process.env.XAI_API_KEY!}`,
           });
           providers.xai.models = sortModels(
-            (data.models || []).map((model: any) => ({
-              id: model.id,
-              label: model.id,
-            })).filter((model: Model) => Boolean(model.id)),
+            (data.models || [])
+              .filter((model: any) => {
+                const input = Array.isArray(model.input_modalities) ? model.input_modalities : [];
+                const output = Array.isArray(model.output_modalities) ? model.output_modalities : [];
+                return input.includes("text") && output.includes("text");
+              })
+              .map((model: any) => ({
+                id: model.id,
+                label: model.id,
+              }))
+              .filter((model: Model) => Boolean(model.id)),
           );
         } catch (error) {
           providers.xai.error = error instanceof Error ? error.message : "Model listing failed";
