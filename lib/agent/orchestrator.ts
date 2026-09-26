@@ -56,7 +56,8 @@ export async function runAutonomousCodingTask(
       TOOL_DEFINITIONS.map(tool => tool as any),
       event => onEvent({ ...event, role }),
       specialistTurns,
-      execution.id
+      execution.id,
+      role
     );
 
     toolCount += result.toolCount;
