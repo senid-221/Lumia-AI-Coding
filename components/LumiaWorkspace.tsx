@@ -197,6 +197,16 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
           <button className="composer-icon" aria-label="Attach file"><Paperclip size={18}/></button>
           <textarea value={task} onChange={e=>setTask(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Message Lumia AI Agent..." rows={1}/>
           <button className="composer-icon" aria-label="Voice input"><Mic size={18}/></button>
+
+          <div className="composer-selectors">
+            <button className="composer-pill" onClick={()=>setMenu(menu==="provider"?"none":"provider")} aria-label="Select AI provider">
+              <span>{providerNames[provider]}</span><ChevronDown size={13}/>
+            </button>
+            <button className="composer-pill model-pill" onClick={()=>setMenu(menu==="model"?"none":"model")} aria-label="Select AI model">
+              <span>{selectedModel?.label || (modelsLoading ? "Loading models..." : "Select model")}</span><ChevronDown size={13}/>
+            </button>
+          </div>
+
           <button className="send-btn" onClick={send} disabled={busy||!task.trim()||!model} aria-label="Send"><Send size={17}/></button>
         </section>
 
