@@ -31,9 +31,10 @@ export async function runConversationalProvider(
   provider: ModelProvider,
   requestedModel: string | undefined,
   input: string,
-  history: { role: "user" | "assistant"; content: string }[]
+  history: { role: "user" | "assistant"; content: string }[],
+  memoryContext = ""
 ): Promise<ConversationResult> {
-  const model = modelIdForLabel(provider, requestedModel);
+  const model = modelIdForLabel(provider, requestedModel);\n  const systemPrompt = memoryContext ? SYSTEM_PROMPT + "\n\nRelevant long-term memory:\n" + memoryContext : SYSTEM_PROMPT;
 
   if (provider === "anthropic") {
     const key = process.env.ANTHROPIC_API_KEY;
@@ -48,7 +49,7 @@ export async function runConversationalProvider(
       body: JSON.stringify({
         model,
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages: [...history.slice(-12), { role: "user", content: input }]
       })
     });
@@ -67,7 +68,7 @@ export async function runConversationalProvider(
   if (provider === "openai") {
     const response = await client(provider).responses.create({
       model,
-      instructions: SYSTEM_PROMPT,
+      instructions: systemPrompt,
       input: [
         ...history.slice(-12).map(message => ({
           role: message.role,
@@ -84,7 +85,7 @@ export async function runConversationalProvider(
   const response = await client(provider).chat.completions.create({
     model,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       ...history.slice(-12),
       { role: "user", content: input }
     ]
