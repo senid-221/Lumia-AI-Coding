@@ -16,13 +16,19 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
 
   const body=await req.json().catch(()=>({}));
   const prompt=String(body.prompt||"").trim();
-  if(!prompt)return NextResponse.json({error:"prompt is required"},{status:400});
+  const resumeExecutionId=typeof body.resumeExecutionId==="string"?body.resumeExecutionId:null;
+  if(!prompt && !resumeExecutionId)return NextResponse.json({error:"prompt is required"},{status:400});
+  if(resumeExecutionId){
+    const source=await prisma.agentExecution.findFirst({where:{id:resumeExecutionId,projectId:id,status:"QUEUED",project:{userId:session.user.id}}});
+    if(!source)return NextResponse.json({error:"Queued resume execution not found"},{status:404});
+  }
   if(!process.env.OPENAI_API_KEY)return NextResponse.json({error:"OPENAI_API_KEY is not configured"},{status:500});
 
-  const conversation=await prisma.conversation.create({
-    data:{userId:session.user.id,projectId:id,title:prompt.slice(0,80)}
-  });
-  await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:prompt}});
+  const existing=resumeExecutionId?await prisma.agentExecution.findUnique({where:{id:resumeExecutionId},select:{conversationId:true,prompt:true}}):null;
+  const conversation=existing?.conversationId
+    ? await prisma.conversation.findUniqueOrThrow({where:{id:existing.conversationId}})
+    : await prisma.conversation.create({data:{userId:session.user.id,projectId:id,title:prompt.slice(0,80)}});
+  if(prompt) await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:prompt}});
 
   const stream=new ReadableStream({
     async start(controller){
@@ -32,9 +38,10 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
 
       try{
         const result=await runAutonomousCodingTask(
-          id,conversation.id,prompt,
-          [{role:"user",content:prompt}],
-          event=>send(event)
+          id,conversation.id,prompt||existing?.prompt||"",
+          [{role:"user",content:prompt||existing?.prompt||""}],
+          event=>send(event),
+          resumeExecutionId||undefined
         );
         await prisma.message.create({data:{conversationId:conversation.id,role:"ASSISTANT",content:result.text}});
         send({type:"complete",toolCount:result.toolCount,turns:result.turns});
