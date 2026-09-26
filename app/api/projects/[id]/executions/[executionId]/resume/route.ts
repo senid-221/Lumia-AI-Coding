@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { enqueueAgentJob } from "@/lib/agent/durable-queue";
 
 export const runtime="nodejs";
 
@@ -16,6 +17,7 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string;exec
   if(!["CANCELLED","FAILED"].includes(source.status)){
     return NextResponse.json({error:"Only cancelled or failed executions can be resumed"},{status:400});
   }
+  if(!source.conversationId) return NextResponse.json({error:"Execution has no conversation to resume."},{status:400});
   const execution=await prisma.agentExecution.create({
     data:{
       projectId:id,
@@ -25,5 +27,7 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string;exec
       parentExecutionId:source.id
     }
   });
-  return NextResponse.json({execution});
+  const queued=await enqueueAgentJob({executionId:execution.id,projectId:id,conversationId:source.conversationId,prompt:source.prompt});
+  if(!queued){ await prisma.agentExecution.update({where:{id:execution.id},data:{status:"FAILED",error:"Durable queue is not configured."}}); return NextResponse.json({error:"Resume queue is not configured on the server."},{status:503}); }
+  return NextResponse.json({execution,queued:true});
 }
