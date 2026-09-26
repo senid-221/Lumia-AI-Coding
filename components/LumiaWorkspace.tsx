@@ -97,8 +97,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       while (true) {
         const {value:chunk,done}=await reader.read();
         buffer += decoder.decode(chunk || new Uint8Array(),{stream:!done});
-        const lines=buffer.split("
-");
+        const lines=buffer.split("\n");
         buffer=lines.pop() || "";
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
