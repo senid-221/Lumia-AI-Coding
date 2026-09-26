@@ -30,9 +30,9 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [model,setModel] = useState("GPT-5.5");
   const [skipInstall,setSkipInstall] = useState(false);
   const [timerOn,setTimerOn] = useState(true);
-  const [notice,setNotice] = useState("");
+  const [notice,setNotice] = useState("");\n  const [liveProviders,setLiveProviders] = useState<{id:string;label:string;models:{id:string;label:string}[]}[]>([]);
   const rootRef=useRef<HTMLElement>(null);
-  const models=providerModels[provider] || [];
+  const providerEntry=liveProviders.find(p=>p.label===provider || p.id===provider.toLowerCase());\n  const providerModels=Object.fromEntries(liveProviders.map(p=>[p.label,p.models.map(m=>m.label)]));\n  const effectiveModels=providerModels[provider] || fallbackProviderModels[provider] || [];\n  const models=effectiveModels;\n  const providers=liveProviders.length ? liveProviders.map(p=>p.label) : Object.keys(fallbackProviderModels);
 
   useEffect(()=>{
     const close=(e:MouseEvent)=>{ if(rootRef.current && !rootRef.current.contains(e.target as Node)) setMenu("none"); };
@@ -40,7 +40,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     return()=>document.removeEventListener("mousedown",close);
   },[]);
 
-  useEffect(()=>{ if(!models.includes(model)) setModel(models[0] || "Auto"); },[provider]);
+  useEffect(()=>{\n    let cancelled=false;\n    fetch("/api/models").then(r=>r.ok?r.json():null).then(data=>{ if(!cancelled && data?.providers) setLiveProviders(data.providers); }).catch(()=>{});\n    return()=>{cancelled=true};\n  },[]);\n\n  useEffect(()=>{ if(!models.includes(model)) setModel(models[0] || ""); },[provider,models.join("|"),model]);
 
   async function send() {
     const value = task.trim();
@@ -118,7 +118,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       <div className="composer-footer">
         <div className="composer-left"><button className="pill" onClick={()=>setMenu(menu==="provider"?"none":"provider")}>{provider} <ChevronDown size={12}/></button><button className="pill" onClick={()=>setMenu(menu==="model"?"none":"model")}>{model} <ChevronDown size={12}/></button><button className="pill muted" onClick={()=>setSkipInstall(v=>!v)}>Skip Install {skipInstall?"✓":""}{!skipInstall&&<X size={12}/>}</button><button className="pill muted" onClick={()=>setTimerOn(v=>!v)}>{timerOn?"10m":"Timer off"} {timerOn&&<X size={12}/>}</button></div>
         <div className="composer-actions"><button className="icon-btn" onClick={()=>setMenu(menu==="settings"?"none":"settings")}><Settings size={17}/></button><button className="send-btn" onClick={send} disabled={busy||!task.trim()} aria-label="Send"><Send size={17}/></button></div>
-      </div>{menu==="provider"&&popup("Agent provider",providers,v=>setProvider(v))}{menu==="model"&&<div className="menu-popover model-popover"><div className="menu-title">All models</div>{Object.entries(providerModels).map(([p,ms])=><div key={p}><div className="menu-section">{p}</div>{ms.map(v=><button className="menu-item" key={p+v} onClick={()=>{setProvider(p);setModel(v);setMenu("none")}}>{v}</button>)}</div>)}</div>}{menu==="settings"&&<div className="menu-popover settings-popover"><div className="menu-title">Lumia settings</div><button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button><div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {provider} · Model: {model}</div></div>}
+      </div>{menu==="provider"&&popup("Agent provider",providers,v=>setProvider(v))}{menu==="model"&&<div className="menu-popover model-popover"><div className="menu-title">All models</div>{(liveProviders.length?liveProviders.map(p=>[p.label,p.models.map(m=>m.label)] as const):Object.entries(fallbackProviderModels)).map(([p,ms])=><div key={p}><div className="menu-section">{p}</div>{ms.map(v=><button className="menu-item" key={p+v} onClick={()=>{setProvider(p);setModel(v);setMenu("none")}}>{v}</button>)}</div>)}</div>}{menu==="settings"&&<div className="menu-popover settings-popover"><div className="menu-title">Lumia settings</div><button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button><div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {provider} · Model: {model}</div></div>}
     </section>
   </main>;
 }
