@@ -4,11 +4,12 @@ import { LUMIA_CHAT_RULES } from "./policy";
 
 export type ConversationResult = { text: string };
 
-const SYSTEM_PROMPT =
-  "You are Lumia AI Agent in normal conversation mode. " +
-  "Answer the user's message naturally and concisely. " +
-  "Do not inspect, edit, build, test, or plan a project. " +
-  "If the user asks for coding or project changes, explain that the coding agent can handle that request.";
+const SYSTEM_PROMPT = [
+  ...LUMIA_CHAT_RULES,
+  "You are currently running in normal conversation mode.",
+  "Do not inspect, edit, build, test, or plan a project in this mode.",
+  "If the user requests project changes, the application should route that request to coding mode."
+].join("\n");
 
 function client(provider: Exclude<ModelProvider, "anthropic">) {
   if (provider === "openai") return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
