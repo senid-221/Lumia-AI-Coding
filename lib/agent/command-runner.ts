@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { ensureProjectWorkspace } from "./workspace";
+import { ensureProjectWorkspace } from "./workspace";\nimport { registerExecution, unregisterExecution } from "./execution-control";
 
 const ALLOWED = new Set(["node","npm","npx","pnpm","yarn","python","python3","git"]);
 const BLOCKED = new Set(["sudo","rm","rmdir","del","shutdown","reboot","format","mkfs","curl","wget"]);
@@ -18,7 +18,7 @@ function assertArgs(command:string,args:string[]) {
   if (["npm","pnpm","yarn"].includes(command) && args[0] && !PACKAGE_ALLOWED.has(args[0].toLowerCase())) throw new Error("Package-manager command is not allowed");
 }
 
-export async function runProjectCommand(projectId:string, command:string, args:string[]=[]):Promise<RunResult> {
+export async function runProjectCommand(projectId:string, command:string, args:string[]=[], executionId?:string):Promise<RunResult> {
   if (!ALLOWED.has(command)) throw new Error("Command is not allowed");
   assertArgs(command,args);
   const cwd=await ensureProjectWorkspace(projectId);
@@ -33,10 +33,10 @@ export async function runProjectCommand(projectId:string, command:string, args:s
       if(Buffer.byteLength(stdout)+Buffer.byteLength(stderr)>maxBytes){truncated=true;child.kill("SIGTERM");}
     };
     child.stdout.on("data",c=>append("out",c)); child.stderr.on("data",c=>append("err",c));
-    const timer=setTimeout(()=>{timedOut=true;child.kill("SIGTERM");},timeoutMs);
+    if(executionId) registerExecution(executionId,()=>child.kill("SIGTERM"));\n    const timer=setTimeout(()=>{timedOut=true;child.kill("SIGTERM");},timeoutMs);
     child.on("error",reject);
     child.on("close",code=>{
-      clearTimeout(timer);
+      clearTimeout(timer);\n      if(executionId) unregisterExecution(executionId);
       if(truncated) stderr+="\n[Lumia: output truncated at limit]";
       if(timedOut) stderr+="\n[Lumia: command timed out]";
       resolve({command,args,code,stdout,stderr,timedOut,durationMs:Date.now()-started});
