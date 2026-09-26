@@ -80,7 +80,8 @@ export async function POST(req:Request){
   if(!conversation)
     conversation=await prisma.conversation.create({data:{userId:session.user.id,projectId:project.id,title:task.slice(0,80)}});
 
-  await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:task}});\n  await prisma.conversation.update({where:{id:conversation.id},data:{updatedAt:new Date()}});
+  await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:task}});
+  await prisma.conversation.update({where:{id:conversation.id},data:{updatedAt:new Date()}});
   await rememberExplicitUserContext(session.user.id, task);
   const storedHistory=await prisma.message.findMany({where:{conversationId:conversation.id},orderBy:{createdAt:"asc"},take:30});
   const history=storedHistory.map(m=>({role:m.role==="USER"?"user" as const:"assistant" as const,content:m.content}));
@@ -104,7 +105,8 @@ export async function POST(req:Request){
             memoryContext,
             event=>send(event)
           );
-          await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});\n          await prisma.conversation.update({where:{id:conversation!.id},data:{updatedAt:new Date()}});
+          await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});
+          await prisma.conversation.update({where:{id:conversation!.id},data:{updatedAt:new Date()}});
           send({type:"message",text:result.text});
           send({type:"complete",toolCount:0,turns:0});
           return;
@@ -123,6 +125,7 @@ export async function POST(req:Request){
           requestedModel||undefined
         );
         await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});
+        await prisma.conversation.update({where:{id:conversation!.id},data:{updatedAt:new Date()}});
         send({type:"complete",toolCount:result.toolCount,turns:result.turns});
       }catch(error){
         send({type:"error",error:error instanceof Error?error.message:"Agent execution failed"});
