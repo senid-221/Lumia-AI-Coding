@@ -19,4 +19,4 @@ COPY --from=build /app/.next ./.next
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/next.config.* ./
 EXPOSE 3000
-CMD ["npm","start"]
+CMD ["sh","-c","npx prisma migrate deploy && npm start"]
