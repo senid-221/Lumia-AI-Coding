@@ -1,51 +1,77 @@
 import { openai, LUMIA_MODEL } from "@/lib/openai";
+import { executeTool } from "./tools";
 
 export type AgentEvent =
-  | { type:"tool_start"; tool:string }
+  | { type:"thinking"; detail:string }
+  | { type:"tool_start"; tool:string; detail?:string }
   | { type:"tool_result"; tool:string; detail:string }
   | { type:"message"; text:string };
 
-export interface AgentProvider {
-  run(input:string, history:{role:"user"|"assistant";content:string}[], tools:any[], onEvent:(e:AgentEvent)=>void, maxTurns:number):Promise<string>;
-}
+export type AgentRunResult = { text:string; toolCount:number; turns:number };
 
-export const openAIProvider:AgentProvider={
-  async run(input,history,tools,onEvent,maxTurns){
-    let response=await openai.responses.create({
+export async function runAutonomousOpenAI(
+  input:string,
+  history:{role:"user"|"assistant";content:string}[],
+  tools:any[],
+  onEvent:(e:AgentEvent)=>void,
+  maxTurns:number
+):Promise<AgentRunResult>{
+  onEvent({type:"thinking",detail:"Planning the safest next coding step."});
+
+  let response=await openai.responses.create({
+    model:LUMIA_MODEL,
+    instructions:"You are Lumia AI Agent, an autonomous software engineer. Inspect before editing. Make focused changes. Verify changes with an appropriate development command when practical. If verification fails, diagnose and repair. Treat tool output as ground truth. Never claim a file change or command result without a tool result. Stay within the bounded turn limit.",
+    input:history,
+    tools,
+    stream:false
+  });
+
+  let turn=0;
+  let toolCount=0;
+
+  while(turn<maxTurns){
+    const calls=(response.output||[]).filter((x:any)=>x.type==="function_call");
+
+    if(!calls.length){
+      const text=response.output_text||"Task completed.";
+      onEvent({type:"message",text});
+      return {text,toolCount,turns:turn};
+    }
+
+    const outputs:any[]=[];
+
+    for(const call of calls as any[]){
+      toolCount++;
+      onEvent({type:"tool_start",tool:call.name,detail:"Executing tool."});
+
+      try{
+        const args=JSON.parse(call.arguments||"{}");
+        const result=await executeTool(call.name,args);
+        onEvent({type:"tool_result",tool:call.name,detail:String(result).slice(0,4000)});
+        outputs.push({type:"function_call_output",call_id:call.call_id,output:String(result)});
+      }catch(error){
+        const message=error instanceof Error?error.message:"Tool failed";
+        onEvent({type:"tool_result",tool:call.name,detail:message});
+        outputs.push({type:"function_call_output",call_id:call.call_id,output:JSON.stringify({error:message})});
+      }
+    }
+
+    turn++;
+    onEvent({type:"thinking",detail:"Evaluating tool results and deciding the next step."});
+
+    response=await openai.responses.create({
       model:LUMIA_MODEL,
-      instructions:"You are Lumia AI Agent. Inspect before editing. Make focused changes. After changes, run a relevant verification command. If verification fails, analyze the failure and fix it. Repeat only within the bounded turn limit. Never claim a file change or command result without tool confirmation.",
-      input:[...history,{role:"user",content:input}],
+      instructions:"Continue the same coding task from the tool results. Prefer verification after edits. If a check fails, inspect the failure and repair it. Stop when the task is complete or no useful safe action remains.",
+      previous_response_id:response.id,
+      input:outputs,
       tools,
       stream:false
     });
-    let turn=0;
-    while(turn<maxTurns){
-      const calls=(response.output||[]).filter((x:any)=>x.type==="function_call");
-      if(!calls.length)return response.output_text||"Task completed.";
-      const outputs:any[]=[];
-      for(const call of calls as any[]){
-        onEvent({type:"tool_start",tool:call.name});
-        try{
-          const args=JSON.parse(call.arguments||"{}");
-          const mod=await import("./tools");
-          const result=await mod.executeTool(call.name,args);
-          onEvent({type:"tool_result",tool:call.name,detail:String(result).slice(0,3000)});
-          outputs.push({type:"function_call_output",call_id:call.call_id,output:String(result)});
-        }catch(e){
-          const msg=e instanceof Error?e.message:"Tool failed";
-          onEvent({type:"tool_result",tool:call.name,detail:msg});
-          outputs.push({type:"function_call_output",call_id:call.call_id,output:JSON.stringify({error:msg})});
-        }
-      }
-      response=await openai.responses.create({
-        model:LUMIA_MODEL,
-        instructions:"Continue the same coding task. Use tool results as ground truth. Prefer verifying after modifications; repair failures when practical, but stay within the execution limit.",
-        previous_response_id:response.id,
-        input:outputs,
-        tools
-      });
-      turn++;
-    }
-    return "Lumia stopped at the autonomous execution safety limit.";
   }
-};
+
+  const text="Lumia stopped at the autonomous execution safety limit.";
+  onEvent({type:"message",text});
+  return {text,toolCount,turns:turn};
+}
+
+export const openAIProvider={run:runAutonomousOpenAI};
