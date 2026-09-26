@@ -15,6 +15,7 @@ export type ProjectContextSnapshot = {
 
 const MAX_FILES = 400;
 const MAX_MANIFEST_ITEMS = 80;
+const SNAPSHOT_VERSION = 1;
 
 function unique(values: string[]) { return [...new Set(values)].sort(); }
 
