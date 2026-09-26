@@ -5,6 +5,7 @@ import type { ModelProvider } from "./model-router";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
 import { loadProjectRules } from "./rule-loader";
+import { inspectProjectContext, formatProjectContext } from "./project-context";
 
 type ContextMessage = { role: "user" | "assistant"; content: string };
 export type ProviderId = ModelProvider;
@@ -16,10 +17,14 @@ export async function runAutonomousCodingTask(
 ) {
   const specialistTurns = Math.max(1, Math.min(Number(process.env.LUMIA_SPECIALIST_TURNS || 4), 8));
   const projectContext = await getProjectContext(projectId, conversationId);
+  onEvent({ type: "project_context_start" });
+  const inspectedContext = await inspectProjectContext(projectId);
+  onEvent({ type: "project_context_complete", context: inspectedContext });
   if (projectContext.project?.userId) await rememberExplicitUserContext(projectContext.project.userId, prompt);
   const effectiveHistory = projectContext.history.length ? projectContext.history : history;
   const contextSummary = [
     projectContext.project ? `Project: ${projectContext.project.name} (${projectContext.project.slug})` : "",
+    formatProjectContext(inspectedContext),
     projectContext.memories.length ? "Project memory:\n" + projectContext.memories.map(m => `[${m.kind}] ${m.key}: ${m.content}`).join("\n") : "",
     projectContext.userMemories?.length ? "User memory:\n" + projectContext.userMemories.map(m => `[${m.kind}] ${m.key}: ${m.content}`).join("\n") : "",
     projectContext.executions.length ? "Recent executions:\n" + projectContext.executions.map(e => `[${e.status}] ${e.prompt.slice(0, 240)}${e.error ? ` -> ${e.error}` : ""}`).join("\n") : ""
@@ -76,6 +81,7 @@ export async function runAutonomousCodingTask(
 
     const maxRepairPasses = Math.max(0, Math.min(Number(process.env.LUMIA_REPAIR_PASSES || 2), 3));
     let verification = "";
+    let debug = "";
     let repairPasses = 0;
     let verificationPassed = false;
 
