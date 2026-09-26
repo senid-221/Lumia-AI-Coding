@@ -94,12 +94,17 @@ async function runOpenAIResponses(
         tool_choice:"auto"
       });
 
-      const calls=(response.output || []).filter((item:any)=>item.type==="function_call");
+      const outputItems = response.output || [];
+      const calls = outputItems.filter((item:any)=>item.type==="function_call");
       if(!calls.length) {
         const text=String(response.output_text || "Task completed.");
         onEvent({type:"message",text});
         return {text,toolCount,turns:turn};
       }
+
+      // Responses API requires the original function_call items to remain
+      // in the next input before their matching function_call_output items.
+      inputItems.push(...outputItems);
 
       for(const call of calls) {
         toolCount++;
