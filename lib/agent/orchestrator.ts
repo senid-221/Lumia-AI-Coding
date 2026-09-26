@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getProjectContext, upsertProjectMemory } from "./memory";
 import { openAIProvider } from "./provider";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
@@ -13,6 +14,13 @@ export async function runAutonomousCodingTask(
   onEvent:(event:any)=>void
 ){
   const specialistTurns=Math.max(1,Math.min(Number(process.env.LUMIA_SPECIALIST_TURNS||4),8));
+  const projectContext=await getProjectContext(projectId,conversationId);
+  const effectiveHistory=projectContext.history.length?projectContext.history:history;
+  const contextSummary=[
+    projectContext.project ? `Project: ${projectContext.project.name} (${projectContext.project.slug})` : "",
+    projectContext.memories.length ? "Project memory:\n"+projectContext.memories.map(m=>`[${m.kind}] ${m.key}: ${m.content}`).join("\n") : "",
+    projectContext.executions.length ? "Recent executions:\n"+projectContext.executions.map(e=>`[${e.status}] ${e.prompt.slice(0,240)}${e.error?` -> ${e.error}`:""}`).join("\n") : ""
+  ].filter(Boolean).join("\n\n");
   const execution=await prisma.agentExecution.create({data:{projectId,conversationId,status:"RUNNING",prompt}});
   const shared:string[]=[];
   let toolCount=0;
@@ -22,7 +30,7 @@ export async function runAutonomousCodingTask(
     onEvent({type:"specialist_start",role,name:SPECIALISTS[role].name});
     const result=await openAIProvider.run(
       specialistPrompt(role,task,shared.join("\n\n").slice(-12000)),
-      history,
+      effectiveHistory,
       TOOL_DEFINITIONS.map(tool=>tool as any),
       event=>onEvent({...event,role}),
       specialistTurns
@@ -63,6 +71,7 @@ export async function runAutonomousCodingTask(
       where:{id:execution.id},
       data:{status:"SUCCEEDED",result:final,toolCount,finishedAt:new Date()}
     });
+    await upsertProjectMemory(projectId,"execution","last-result",final.slice(-12000));
 
     return {text:final,toolCount,turns};
   }catch(error){
