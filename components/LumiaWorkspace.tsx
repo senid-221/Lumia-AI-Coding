@@ -6,7 +6,7 @@ import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History
 type Msg = { role:"user"|"assistant"; content:string; id:string };
 type ConversationSummary = { id:string; title:string|null; updatedAt:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
-type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account"|"about";
+type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"files"|"docs"|"account"|"about";
 const agents=[
   "ai-agent","coding-agent","unit-test","ask","e2e-test","repo-info","web-dev",
   "planner","coder","reviewer","debugger","verifier","hacking-lab"
