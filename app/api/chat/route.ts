@@ -74,7 +74,14 @@ export async function POST(req:Request){
 
       try{
         if(agent==="ai-agent" && (isSimpleConversation(task) || (looksLikeConversation(task) && !looksLikeCodingTask(task)))){
-          const result=await runConversationalProvider(provider,requestedModel||undefined,task,history,memoryContext);
+          const result=await runConversationalProvider(
+            provider,
+            requestedModel||undefined,
+            task,
+            history,
+            memoryContext,
+            event=>send(event)
+          );
           await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});
           send({type:"message",text:result.text});
           send({type:"complete",toolCount:0,turns:0});
