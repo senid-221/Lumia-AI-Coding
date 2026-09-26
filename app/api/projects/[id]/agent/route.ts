@@ -42,12 +42,9 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   });
 
   const encoder=new TextEncoder();
-
   const stream=new ReadableStream({
     async start(controller){
-      const send=(data:unknown)=>
-        controller.enqueue(encoder.encode(sse(data)));
-
+      const send=(data:unknown)=>controller.enqueue(encoder.encode(sse(data)));
       send({type:"conversation",id:conversation.id});
 
       try{
@@ -55,7 +52,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
           id,
           conversation.id,
           prompt,
-          [],
+          [{role:"user",content:prompt}],
           event=>send(event)
         );
 
