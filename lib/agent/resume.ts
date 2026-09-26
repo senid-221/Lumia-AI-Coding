@@ -14,7 +14,7 @@ export async function createResumeExecution(projectId:string, previousExecutionI
       projectId,
       conversationId:previous.conversationId,
       status:"RUNNING",
-      prompt:previous.prompt,
+      prompt:"Resume: "+previous.prompt,
       parentExecutionId:previous.id
     }
   });
