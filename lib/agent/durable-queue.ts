@@ -8,12 +8,12 @@ const queueKey="lumia:agent:queue";
 
 export type AgentJob={executionId:string;projectId:string;conversationId:string;prompt:string};
 
-export async function enqueueAgentJob(job:AgentJob){
+export async function enqueueAgentJob(job:AgentJob):Promise<string|false>{
   if(!redis) return false;
   const id=job.executionId || crypto.randomUUID();
   const queued={...job,executionId:id};
   await redis.rpush(queueKey,JSON.stringify(queued));
-  return true;
+  return id;
 }
 
 export async function dequeueAgentJob(){
