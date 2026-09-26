@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { modelIdForLabel, type ModelProvider } from "./model-router";
+import { LUMIA_CHAT_RULES } from "./policy";
 
 export type ConversationResult = { text: string };
 
