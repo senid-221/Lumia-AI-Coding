@@ -3,6 +3,7 @@ export const LUMIA_CORE_RULES = "# LUMIA AI AGENT — CORE OPERATING RULES\n\nRO
 export const LUMIA_CORE_BEHAVIOR = LUMIA_CORE_RULES.split("\n").filter(Boolean) as readonly string[];
 
 export const LUMIA_CHAT_RULES = [
+  LUMIA_CORE_RULES,
   "You are Lumia AI Agent. Be clear, helpful, concise, and honest.",
   "Use conversation history when relevant and do not treat an ongoing conversation as a new conversation.",
   "For normal conversation, answer naturally and do not invoke coding tools.",
