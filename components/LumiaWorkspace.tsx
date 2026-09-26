@@ -73,7 +73,8 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       while (true) {
         const {value:chunk,done}=await reader.read(); if(done) break;
         const text=decoder.decode(chunk,{stream:true});
-        for (const line of text.split("\n")) {
+        for (const line of text.split("
+")) {
           if (!line.startsWith("data: ")) continue;
           const data=line.slice(6); if(data==="[DONE]") continue;
           const event=JSON.parse(data);
@@ -96,14 +97,16 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     {id:"connectors",label:"Connectors",icon:<Plug size={15}/>},
     {id:"deploy",label:"Deploy",icon:<Rocket size={15}/>},
     {id:"docs",label:"Documentation",icon:<BookOpen size={15}/>},
-    {id:"account",label:"Account",icon:<UserRound size={15}/>} ,\n    {id:"about",label:"About",icon:<Info size={15}/>} ,
+    {id:"account",label:"Account",icon:<UserRound size={15}/>} ,
+    {id:"about",label:"About",icon:<Info size={15}/>} ,
     {id:"settings",label:"Settings",icon:<Settings size={15}/>}
   ];
 
   function handleMainAction(action:MainAction){
     setMenu("none");
     if(action==="new"){setMessages([]);setConversationId(undefined);setTask("");return;}
-    if(action==="settings"){setMenu("settings");return;}\n    if(action==="about"){window.location.href="/about";return;}
+    if(action==="settings"){setMenu("settings");return;}
+    if(action==="about"){window.location.href="/about";return;}
     const notices: Record<string,string> = {
       services:"All Services — AI coding, agents, Hacking Lab, Git, reviews and automation.",
       history:"History — your previous Lumia conversations and agent runs.",
@@ -111,7 +114,8 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       connectors:"Connectors — connect GitHub, Google, databases and external tools.",
       deploy:"Deploy — prepare this project for production deployment.",
       docs:"Documentation — Lumia AI Agent platform guides and services.",
-      account:"Account — manage your Lumia profile and authentication.",\n      about:"About — learn more about Lumia AI Agent."
+      account:"Account — manage your Lumia profile and authentication.",
+      about:"About — learn more about Lumia AI Agent."
     };
     setNotice(notices[action]);
     window.setTimeout(()=>setNotice(""),4500);
