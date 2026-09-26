@@ -46,8 +46,7 @@ async function runChatProvider(
   tools:any[],
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
-  executionId?:string,
-  routingRole?:string
+  executionId?:string
 ):Promise<AgentRunResult> {
   const client = openAICompatibleClient(provider);
   const messages:any[] = [
@@ -194,7 +193,8 @@ export async function runModelProvider(
   tools:any[],
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
-  executionId?:string
+  executionId?:string,
+  routingRole?:string
 ):Promise<AgentRunResult> {
   let selectedProvider=provider;
   let selectedModel=model || "";
