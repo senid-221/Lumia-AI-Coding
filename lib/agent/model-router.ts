@@ -53,7 +53,7 @@ export function hasProviderKey(provider: Exclude<ModelProvider, "zencode">) {
   return Boolean(process.env.XAI_API_KEY);
 }
 
-export function resolveZencoderMode(mode?: string) {
+export function resolveZencoderMode(mode?: string, role?: string) {
   const requested = String(mode || "auto").toLowerCase();
   const enabled: Exclude<ModelProvider, "zencode">[] = ["anthropic", "openai", "google", "xai"];
   const available = enabled.filter(hasProviderKey);
@@ -65,7 +65,17 @@ export function resolveZencoderMode(mode?: string) {
     ? (["anthropic", "openai", "google", "xai"] as const)
     : (["openai", "anthropic", "google", "xai"] as const);
 
-  const selected = preferred.find(p => available.includes(p))!;
+  let selected = preferred.find(p => available.includes(p))!;
+  if (requested === "auto-plus") {
+    const rolePreference: Record<string, Exclude<ModelProvider, "zencode">[]> = {
+      planner: ["anthropic", "openai", "google", "xai"],
+      coder: ["google", "openai", "anthropic", "xai"],
+      reviewer: ["openai", "anthropic", "google", "xai"],
+      debugger: ["xai", "openai", "anthropic", "google"],
+      verifier: ["openai", "google", "anthropic", "xai"]
+    };
+    selected = (rolePreference[role || ""] || preferred).find(p => available.includes(p))!;
+  }
   const models = MODEL_CATALOG[selected];
   const model = requested === "auto-plus"
     ? models[models.length - 1]
