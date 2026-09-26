@@ -257,6 +257,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
         {workspacePanel==="files"&&<div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:12,minHeight:400}}><div><input placeholder="Filter files..." value={fileSearch} onChange={e=>setFileSearch(e.target.value)} style={{width:"100%",padding:8,marginBottom:8}}/>{fileEntries.filter((f:any)=>String(f.path||f.name||"").toLowerCase().includes(fileSearch.toLowerCase())).map((f:any)=><button key={f.path||f.name} className="menu-item" style={{display:"block",width:"100%",textAlign:"left"}} onClick={()=>openFile(f.path||f.name)}>{f.path||f.name}</button>)}</div><div><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><b>{selectedFile||"Select a file"}</b>{selectedFile&&<button className="settings-action" disabled={fileSaving} onClick={saveFile}>{fileSaving?"Saving...":"Save"}</button>}</div><textarea value={fileDraft} onChange={e=>setFileDraft(e.target.value)} style={{width:"100%",minHeight:390,fontFamily:"monospace",fontSize:12,padding:10}} placeholder="Select a project file to edit." /></div></div>}
       </section>}\n
       <section className="chat-shell">
+      {detectedLanguage && detectedLanguage.code!=="unknown" && <div style={{fontSize:11,opacity:.55,textAlign:"center",padding:"4px 0"}}>Language: {detectedLanguage.name} · {Math.round(detectedLanguage.confidence*100)}%</div>}
         {messages.length===0 && (
           <div className="empty-state">
             <div className="empty-mark"><Bot size={28}/></div>
