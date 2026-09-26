@@ -14,10 +14,8 @@ export default async function AccountControl() {
       ) : (
         <div className="avatar fallback">{session.user.name?.slice(0, 1).toUpperCase() || "U"}</div>
       )}
-      <span className="account-name">{session.user.name || session.user.email}</span>
-      <form action={async () => { "use server"; await signOut({ redirectTo: "/" }); }}>
-        <button className="logout-btn" type="submit">Sign out</button>
-      </form>
+
+
     </div>
   );
 }
