@@ -66,7 +66,7 @@ export function detectLanguage(input: string): DetectedLanguage {
       confidence: Math.min(0.99, item.score / Math.max(2, total * 0.65))
     }));
   const second = scored[1];
-  const mixed = Boolean(second && second.score >= Math.max(2, top.score * 0.55));
+  const mixed = Boolean(second && second.score > 0 && second.score >= Math.max(1, top.score * 0.4));
 
   return {
     code: confidence < 0.28 ? "unknown" : top.code,
