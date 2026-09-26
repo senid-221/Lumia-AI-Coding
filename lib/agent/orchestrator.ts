@@ -53,7 +53,6 @@ export async function runAutonomousCodingTask(
   };
 
   try {
-    const codingLike = /\\b(code|coding|build|implement|fix|debug|repair|refactor|edit|change|update|modify|create|add|remove|test|lint|typecheck|deploy|database|schema|api|component|ui|frontend|backend)\\b/i.test(prompt);
     const researchLike = /\\b(research|latest|current|documentation|docs|official|compare|verify|source|api reference)\\b/i.test(prompt);
     const securityLike = /\\b(security|auth|authentication|authorization|permission|secret|token|vulnerability|secure)\\b/i.test(prompt);
     const uiLike = /\\b(ui|ux|frontend|component|responsive|design|layout|css|tailwind)\\b/i.test(prompt);
