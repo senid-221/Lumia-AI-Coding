@@ -1,4 +1,4 @@
-export type ModelProvider = "anthropic" | "openai" | "google" | "xai";
+export type ModelProvider = "anthropic" | "openai" | "google" | "xai" | "groq";
 
 export type ModelDefinition = {
   id: string;
@@ -25,6 +25,12 @@ export const MODEL_CATALOG: Record<ModelProvider, ModelDefinition[]> = {
   ],
   xai: [
     { id: process.env.LUMIA_XAI_GROK_CODE_FAST_1_MODEL || "grok-build-0.1", label: "Grok Code Fast 1", provider: "xai" }
+  ],
+  groq: [
+    { id: process.env.LUMIA_GROQ_GPT_OSS_120B_MODEL || "openai/gpt-oss-120b", label: "GPT-OSS 120B", provider: "groq" },
+    { id: process.env.LUMIA_GROQ_GPT_OSS_20B_MODEL || "openai/gpt-oss-20b", label: "GPT-OSS 20B", provider: "groq" },
+    { id: process.env.LUMIA_GROQ_LLAMA_3_3_70B_MODEL || "llama-3.3-70b-versatile", label: "Llama 3.3 70B", provider: "groq" },
+    { id: process.env.LUMIA_GROQ_LLAMA_3_1_8B_MODEL || "llama-3.1-8b-instant", label: "Llama 3.1 8B", provider: "groq" }
   ]
 };
 
@@ -37,5 +43,6 @@ export function hasProviderKey(provider: ModelProvider) {
   if (provider === "anthropic") return Boolean(process.env.ANTHROPIC_API_KEY);
   if (provider === "openai") return Boolean(process.env.OPENAI_API_KEY);
   if (provider === "google") return Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
-  return Boolean(process.env.XAI_API_KEY);
+  if (provider === "xai") return Boolean(process.env.XAI_API_KEY);
+  return Boolean(process.env.GROQ_API_KEY);
 }
