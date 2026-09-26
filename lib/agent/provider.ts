@@ -26,9 +26,13 @@ function openAICompatibleClient(provider: "openai"|"google"|"xai") {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
     defaultHeaders: { "x-goog-api-client": "lumia-ai-agent/1.0" }
   });
-  return new OpenAI({
+  if (provider === "xai") return new OpenAI({
     apiKey: process.env.XAI_API_KEY,
     baseURL: process.env.XAI_BASE_URL || "https://api.x.ai/v1"
+  });
+  return new OpenAI({
+    apiKey: process.env.GROQ_API_KEY,
+    baseURL: process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1"
   });
 }
 
@@ -208,6 +212,8 @@ export async function runModelProvider(
     throw new Error("GEMINI_API_KEY or GOOGLE_API_KEY is not configured on the server.");
   if(selectedProvider==="xai" && !process.env.XAI_API_KEY)
     throw new Error("XAI_API_KEY is not configured on the server.");
+  if(selectedProvider==="groq" && !process.env.GROQ_API_KEY)
+    throw new Error("GROQ_API_KEY is not configured on the server.");
 
   return runChatProvider(selectedProvider,selectedModel,input,history,tools,onEvent,maxTurns,executionId);
 }
