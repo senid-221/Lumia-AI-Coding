@@ -10,7 +10,12 @@ const sse=(data:unknown)=>"data: "+JSON.stringify(data)+"\n\n";
 function normalizeAgent(value:unknown) { return String(value||"ai-agent").toLowerCase()==="hacking-lab" ? "hacking-lab" : "ai-agent"; }
 
 function normalizeProvider(value:unknown):ProviderId {
-  return String(value||"openai").toLowerCase()==="zencode" ? "zencode" : "openai";
+  const v=String(value||"openai").toLowerCase().replace(/[^a-z]/g,"");
+  if(v==="anthropic"||v==="claude") return "anthropic";
+  if(v==="google"||v==="gemini") return "google";
+  if(v==="xai"||v==="grok") return "xai";
+  if(v==="zencoder"||v==="zencode") return "zencode";
+  return "openai";
 }
 
 export async function POST(req:Request){
@@ -27,10 +32,9 @@ export async function POST(req:Request){
 
   if(agent==="hacking-lab" && provider!=="zencode" && !process.env.OPENAI_API_KEY)
     return NextResponse.json({error:"Hacking Lab requires a configured AI provider."},{status:500});
-  if(provider==="zencode" && !process.env.ZENCODER_RUNTIME_COMMAND)
-    return NextResponse.json({
-      error:"Zencoder runtime is not configured. Set ZENCODER_RUNTIME_COMMAND to an installed, supported coding-agent CLI on the Lumia worker. Lumia does not send Zencoder keys to an undocumented REST endpoint."
-    },{status:500});
+  // Zencoder is implemented as Lumia's model-orchestration mode.
+  // It routes Auto/Auto+ across configured first-party provider APIs; it does not
+  // require an undocumented api.z.ai endpoint or a local "zen" executable.
   if(provider==="openai" && !process.env.OPENAI_API_KEY)
     return NextResponse.json({error:"OPENAI_API_KEY is not configured on the server."},{status:500});
 
