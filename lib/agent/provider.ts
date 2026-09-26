@@ -207,6 +207,8 @@ export async function runModelProvider(
 
   if(selectedProvider==="anthropic")
     return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId);
+  if(selectedProvider==="zencode")
+    throw new Error("Zencoder routing did not resolve to a provider.");
 
   if(selectedProvider==="openai" && !hasProviderKey("openai"))
     throw new Error("OPENAI_API_KEY is not configured on the server.");
