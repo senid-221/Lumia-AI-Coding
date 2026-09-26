@@ -9,7 +9,10 @@ async function processJob(){
   const job=await dequeueAgentJob();
   if(!job)return false;
   const execution=await prisma.agentExecution.findUnique({where:{id:job.executionId}});
-  if(!execution)return true;
+  if(!execution){
+    await prisma.agentExecution.create({data:{id:job.executionId,projectId:job.projectId,conversationId:job.conversationId,status:"QUEUED",prompt:job.prompt}});
+  }
+  if(["CANCELLED","SUCCEEDED"].includes(execution?.status||""))return true;
   if(["CANCELLED","SUCCEEDED"].includes(execution.status))return true;
 
   try{
