@@ -87,25 +87,54 @@ export async function runAutonomousCodingTask(
       debug = await roleRun("debugger", prompt + "\nReview findings:\n" + review + "\nRepair the project.");
     }
 
-    const verification = await roleRun(
-      "verifier",
-      prompt + "\nReview:\n" + review +
-      (debug ? "\nDebugger:\n" + debug : "") +
-      "\nVerify the current project using available tools."
-    );
+    const maxRepairPasses = Math.max(0, Math.min(Number(process.env.LUMIA_REPAIR_PASSES || 2), 3));
+    let verification = "";
+    let repairPasses = 0;
+    let verificationPassed = false;
 
+    while (true) {
+      verification = await roleRun(
+        "verifier",
+        prompt + "\nReview:\n" + review +
+        (debug ? "\nDebugger:\n" + debug : "") +
+        (repairPasses ? "\nRepair pass " + repairPasses + " was applied. Verify the repaired project again." : "") +
+        "\nVerify the current project using available tools. Report concrete command output and whether the requested outcome is actually satisfied."
+      );
+
+      const failureEvidence = /\b(fail(?:ed|ure)?|error|broken|incorrect|missing|regression|does not|doesn't|not working|unable|cannot|cannot verify|not verified)\b/i.test(verification);
+
+      if (!failureEvidence) {
+        verificationPassed = true;
+        break;
+      }
+
+      if (repairPasses >= maxRepairPasses) break;
+
+      repairPasses++;
+      debug = await roleRun(
+        "debugger",
+        prompt +
+        "\nVerifier failure evidence:\n" + verification +
+        "\nRepair pass " + repairPasses +
+        ": inspect the actual failure, make the smallest safe repair, and do not claim success until the next verifier pass confirms it."
+      );
+    }
+
+    const resultStatus = verificationPassed ? "SUCCEEDED" : "FAILED";
     const final = [
       "Step 1: Understand and plan\n" + plan,
       "Step 2: Work on the project\n" + implementation,
       "Step 3: Review\n" + review,
       debug ? "Step 4: Repair\n" + debug : "",
       "Step " + (debug ? "5" : "4") + ": Verify\n" + verification,
-      "Result: The task is reported from the actual work and verification above. Any remaining limitation is stated by the verifier."
+      verificationPassed
+        ? "Result: Verification passed based on the verifier's current evidence."
+        : "Result: Verification did not pass. Lumia will not report this task as completed."
     ].filter(Boolean).join("\n\n");
 
     await prisma.agentExecution.update({
       where: { id: execution.id },
-      data: { status: "SUCCEEDED", result: final, toolCount, finishedAt: new Date() }
+      data: { status: resultStatus, result: final, toolCount, finishedAt: new Date() }
     });
     await upsertProjectMemory(projectId, "execution", "last-result", final.slice(-12000));
 
