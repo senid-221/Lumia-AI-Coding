@@ -34,7 +34,8 @@ export async function runConversationalProvider(
   history: { role: "user" | "assistant"; content: string }[],
   memoryContext = ""
 ): Promise<ConversationResult> {
-  const model = modelIdForLabel(provider, requestedModel);\n  const systemPrompt = memoryContext ? SYSTEM_PROMPT + "\n\nRelevant long-term memory:\n" + memoryContext : SYSTEM_PROMPT;
+  const model = modelIdForLabel(provider, requestedModel); 
+  const systemPrompt = memoryContext ? SYSTEM_PROMPT + "\n\nRelevant long-term memory:\n" + memoryContext : SYSTEM_PROMPT;
 
   if (provider === "anthropic") {
     const key = process.env.ANTHROPIC_API_KEY;
