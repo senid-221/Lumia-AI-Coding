@@ -13,7 +13,7 @@ export async function createResumeExecution(projectId:string, previousExecutionI
     data:{
       projectId,
       conversationId:previous.conversationId,
-      status:"RUNNING",
+      status:"QUEUED",
       prompt:"Resume: "+previous.prompt,
       parentExecutionId:previous.id
     }
