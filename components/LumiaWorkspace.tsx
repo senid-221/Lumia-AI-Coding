@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound, Info, Paperclip, Mic, Copy, ThumbsUp, ThumbsDown, RotateCcw } from "lucide-react";
+import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound, Info, Paperclip, Mic, Copy, ThumbsUp, ThumbsDown, RotateCcw, Check, SlidersHorizontal, ShieldCheck, Trash2, Sun, Monitor, Keyboard } from "lucide-react";
 
 type Msg = { role:"user"|"assistant"; content:string; id:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
@@ -33,6 +33,12 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [modelsLoading,setModelsLoading] = useState(true);
   const [modelSearch,setModelSearch] = useState("");
   const [modelRefresh,setModelRefresh] = useState(0);
+  const [settingsTab,setSettingsTab] = useState<"general"|"ai"|"execution"|"privacy">("general");
+  const [compactMode,setCompactMode] = useState(false);
+  const [autoScroll,setAutoScroll] = useState(true);
+  const [enterToSend,setEnterToSend] = useState(true);
+  const [showActivity,setShowActivity] = useState(true);
+  const [confirmCommands,setConfirmCommands] = useState(true);
   const rootRef=useRef<HTMLElement>(null);
   const providerEntry=liveProviders.find(p=>p.id===provider);
   const models=providerEntry?.models || [];
@@ -75,13 +81,13 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       let buffer = "";
       const handleEvent = (event:any) => {
         if(event.type==="conversation") setConversationId(event.id);
-        if(event.type==="thinking") setStatus(event.detail || "Thinking...");
-        if(event.type==="specialist_start") setStatus((event.name || "Agent").replace(/[-_]/g," ").replace(/\b\w/g,(c:string)=>c.toUpperCase()) + "...");
-        if(event.type==="tool_start") {
+        if(event.type==="thinking" && showActivity) setStatus(event.detail || "Thinking...");
+        if(event.type==="specialist_start" && showActivity) setStatus((event.name || "Agent").replace(/[-_]/g," ").replace(/\b\w/g,(c:string)=>c.toUpperCase()) + "...");
+        if(event.type==="tool_start" && showActivity) {
           const labels:Record<string,string>={list_files:"Analysing files...",read_file:"Reading files...",search_code:"Analysing code...",write_file:"Building...",run_command:"Running command...",git_status:"Checking project..."};
           setStatus(labels[event.tool] || "Working...");
         }
-        if(event.type==="tool_result") setStatus("Working...");
+        if(event.type==="tool_result" && showActivity) setStatus("Working...");
         if(event.type==="delta"){ assistant += event.text || ""; setMessages(m=>m.map(x=>x.id===assistantId?{...x,content:assistant}:x)); }
         if(event.type==="message"){ assistant = event.text || assistant; setMessages(m=>m.map(x=>x.id===assistantId?{...x,content:assistant}:x)); }
         if(event.type==="error") { setError(event.error); setStatus(""); }
@@ -143,7 +149,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const popup=(title:string,items:string[],onPick:(v:string)=>void)=><div className="menu-popover"><div className="menu-title">{title}</div>{items.map(item=><button className="menu-item" key={item} onClick={()=>{onPick(item);setMenu("none")}}>{item}</button>)}</div>;
 
   return (
-    <main className="workspace" ref={rootRef}>
+    <main className={"workspace"+(compactMode?" compact-mode":"")} ref={rootRef}>
       <header className="topbar">
         <div className="top-left">
           <button className="icon-btn" onClick={()=>setMenu(menu==="main"?"none":"main")} aria-label="Open menu"><Menu size={18}/></button>
@@ -195,7 +201,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
 
         <section className="composer">
           <button className="composer-icon" aria-label="Attach file"><Paperclip size={18}/></button>
-          <textarea value={task} onChange={e=>setTask(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Message Lumia AI Agent..." rows={1}/>
+          <textarea value={task} onChange={e=>setTask(e.target.value)} onKeyDown={e=>{if(enterToSend && e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Message Lumia AI Agent..." rows={1}/>
           <button className="composer-icon" aria-label="Voice input"><Mic size={18}/></button>
 
           <div className="composer-selectors">
@@ -218,11 +224,60 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
           {modelsLoading?<div className="menu-note">Loading models...</div>:providerEntry?.error?<div className="menu-note">{providerEntry.error}</div>:providerEntry?.configured===false?<div className="menu-note">{providerNames[provider]} API key is not configured on the server.</div>:models.length===0?<div className="menu-note">Provider is configured but returned no models. Check the API key permissions and provider endpoint.</div>:models.filter(m=>(m.label+" "+m.id).toLowerCase().includes(modelSearch.toLowerCase())).map(m=><button className="menu-item" key={m.id} onClick={()=>{setModel(m.id);setMenu("none");setModelSearch("");}}>{m.label}{m.label!==m.id?<small style={{display:"block",opacity:.6}}>{m.id}</small>:null}</button>)}
         </div>}
 
-        {menu==="settings"&&<div className="menu-popover settings-popover">
-          <div className="menu-title">Lumia settings</div>
-          <button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button>
-          <div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {providerNames[provider]} · Model: {selectedModel?.label || "None"}</div>
-        </div>}
+        {menu==="settings"&&<div className="settings-panel">
+          <div className="settings-head">
+            <div><div className="settings-title">Settings</div><div className="settings-subtitle">Control how Lumia looks, responds, and runs tasks.</div></div>
+            <button className="settings-close" onClick={()=>setMenu("none")}><X size={17}/></button>
+          </div>
+          <div className="settings-body">
+            <aside className="settings-nav">
+              {[
+                ["general","General",<SlidersHorizontal size={15}/>],
+                ["ai","AI & Models",<Bot size={15}/>],
+                ["execution","Execution",<ShieldCheck size={15}/>],
+                ["privacy","Privacy & Reset",<Trash2 size={15}/>]
+              ].map(([id,label,icon])=><button key={String(id)} className={settingsTab===id?"settings-nav-item active":"settings-nav-item"} onClick={()=>setSettingsTab(id as typeof settingsTab)}>{icon}<span>{label}</span></button>)}
+            </aside>
+            <section className="settings-content">
+              {settingsTab==="general"&&<>
+                <div className="settings-section"><h3>Interface</h3>
+                  <label className="setting-row"><span><b>Compact mode</b><small>Reduce spacing in conversations and controls.</small></span><input type="checkbox" checked={compactMode} onChange={e=>setCompactMode(e.target.checked)}/></label>
+                  <label className="setting-row"><span><b>Show activity</b><small>Show what Lumia is currently doing while it works.</small></span><input type="checkbox" checked={showActivity} onChange={e=>setShowActivity(e.target.checked)}/></label>
+                  <label className="setting-row"><span><b>Auto-scroll</b><small>Keep the conversation at the latest response.</small></span><input type="checkbox" checked={autoScroll} onChange={e=>setAutoScroll(e.target.checked)}/></label>
+                </div>
+                <div className="settings-section"><h3>Keyboard</h3>
+                  <label className="setting-row"><span><b>Enter to send</b><small>Press Enter to send; Shift + Enter creates a new line.</small></span><input type="checkbox" checked={enterToSend} onChange={e=>setEnterToSend(e.target.checked)}/></label>
+                </div>
+                <div className="settings-info"><Keyboard size={15}/><span>Current agent: <b>{agent}</b></span></div>
+              </>}
+              {settingsTab==="ai"&&<>
+                <div className="settings-section"><h3>Default AI provider</h3>
+                  <div className="settings-options">{providerIds.map(id=><button key={id} className={provider===id?"choice active":"choice"} onClick={()=>{setProvider(id);setModel("");}}>{provider===id&&<Check size={14}/>}<span>{providerNames[id]}</span></button>)}</div>
+                </div>
+                <div className="settings-section"><h3>Current model</h3>
+                  <div className="settings-current"><Bot size={16}/><div><b>{selectedModel?.label || "No model selected"}</b><small>{selectedModel?.id || "Choose a provider with a configured API key."}</small></div></div>
+                  <button className="settings-action" onClick={()=>{setMenu("model")}}>Choose model</button>
+                  <button className="settings-action" onClick={()=>setModelRefresh(v=>v+1)}>Refresh available models</button>
+                </div>
+              </>}
+              {settingsTab==="execution"&&<>
+                <div className="settings-section"><h3>Agent execution</h3>
+                  <label className="setting-row"><span><b>Skip install</b><small>Do not automatically install project dependencies when the workflow supports skipping.</small></span><input type="checkbox" checked={skipInstall} onChange={e=>setSkipInstall(e.target.checked)}/></label>
+                  <label className="setting-row"><span><b>Execution timer</b><small>Keep the task time control enabled in the workspace.</small></span><input type="checkbox" checked={timerOn} onChange={e=>setTimerOn(e.target.checked)}/></label>
+                  <label className="setting-row"><span><b>Confirm commands</b><small>Keep an explicit confirmation boundary for commands that may change the project.</small></span><input type="checkbox" checked={confirmCommands} onChange={e=>setConfirmCommands(e.target.checked)}/></label>
+                </div>
+                <div className="settings-info"><ShieldCheck size={15}/><span>Verification remains required before Lumia reports coding work as complete.</span></div>
+              </>}
+              {settingsTab==="privacy"&&<>
+                <div className="settings-section"><h3>Local workspace data</h3>
+                  <button className="danger-action" onClick={()=>{setMessages([]);setConversationId(undefined);setTask("");setNotice("Current chat cleared.");setMenu("none");}}>Clear current chat</button>
+                  <button className="settings-action" onClick={()=>{localStorage.removeItem("lumia-settings");setCompactMode(false);setAutoScroll(true);setEnterToSend(true);setShowActivity(true);setConfirmCommands(true);setSkipInstall(false);setTimerOn(true);setNotice("Settings reset to defaults.");}}>Reset all settings</button>
+                </div>
+                <div className="settings-info"><Monitor size={15}/><span>These interface preferences are stored locally in this browser.</span></div>
+              </>}
+            </section>
+          </div>
+        </div>
       </section>
 
       {notice && <div className="toast-notice">{notice}</div>}
