@@ -16,12 +16,12 @@ export async function GET() {
   const session=await auth();
   if(!session?.user?.id) return NextResponse.json({error:"Unauthorized"},{status:401});
 
-  const providers:Record<Provider,{id:string;label:string;models:{id:string;label:string}[]}> = {
-    anthropic:{id:"anthropic",label:"Anthropic",models:[]},
-    openai:{id:"openai",label:"OpenAI",models:[]},
-    google:{id:"google",label:"Google",models:[]},
-    xai:{id:"xai",label:"xAI",models:[]},
-    groq:{id:"groq",label:"Groq",models:[]}
+  const providers:Record<Provider,{id:string;label:string;models:{id:string;label:string}[];configured:boolean;error?:string}> = {
+    anthropic:{id:"anthropic",label:"Anthropic",models:[],configured:Boolean(process.env.ANTHROPIC_API_KEY)},
+    openai:{id:"openai",label:"OpenAI",models:[],configured:Boolean(process.env.OPENAI_API_KEY)},
+    google:{id:"google",label:"Google",models:[],configured:Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)},
+    xai:{id:"xai",label:"xAI",models:[],configured:Boolean(process.env.XAI_API_KEY)},
+    groq:{id:"groq",label:"Groq",models:[],configured:Boolean(process.env.GROQ_API_KEY)}
   };
 
   const tasks:Promise<void>[]=[];
@@ -29,28 +29,28 @@ export async function GET() {
   if(process.env.ANTHROPIC_API_KEY) tasks.push((async()=>{try{
     const d=await fetchJson("https://api.anthropic.com/v1/models",{"x-api-key":process.env.ANTHROPIC_API_KEY!,"anthropic-version":"2023-06-01"});
     providers.anthropic.models=(d.data||[]).map((m:any)=>({id:m.id,label:m.display_name||m.id}));
-  }catch{}})());
+  }catch(e){providers.anthropic.error=e instanceof Error?e.message:"Model listing failed";}})());
 
   if(process.env.OPENAI_API_KEY) tasks.push((async()=>{try{
     const d=await fetchJson("https://api.openai.com/v1/models",{Authorization:"Bearer "+process.env.OPENAI_API_KEY!});
     providers.openai.models=(d.data||[]).map((m:any)=>({id:m.id,label:m.id})).sort((a:any,b:any)=>a.label.localeCompare(b.label));
-  }catch{}})());
+  }catch(e){providers.anthropic.error=e instanceof Error?e.message:"Model listing failed";}})());
 
   const googleKey=process.env.GEMINI_API_KEY||process.env.GOOGLE_API_KEY;
   if(googleKey) tasks.push((async()=>{try{
     const d=await fetchJson("https://generativelanguage.googleapis.com/v1beta/models?key="+encodeURIComponent(googleKey));
     providers.google.models=(d.models||[]).map((m:any)=>({id:String(m.name||"").replace(/^models\//,""),label:m.displayName||m.name})).filter((m:any)=>m.id);
-  }catch{}})());
+  }catch(e){providers.anthropic.error=e instanceof Error?e.message:"Model listing failed";}})());
 
   if(process.env.XAI_API_KEY) tasks.push((async()=>{try{
     const d=await fetchJson("https://api.x.ai/v1/models",{Authorization:"Bearer "+process.env.XAI_API_KEY!});
     providers.xai.models=(d.data||[]).map((m:any)=>({id:m.id,label:m.id})).sort((a:any,b:any)=>a.label.localeCompare(b.label));
-  }catch{}})());
+  }catch(e){providers.anthropic.error=e instanceof Error?e.message:"Model listing failed";}})());
 
   if(process.env.GROQ_API_KEY) tasks.push((async()=>{try{
     const d=await fetchJson(process.env.GROQ_BASE_URL ? process.env.GROQ_BASE_URL.replace(/\/$/,"")+"/models" : "https://api.groq.com/openai/v1/models",{Authorization:"Bearer "+process.env.GROQ_API_KEY!});
     providers.groq.models=(d.data||[]).map((m:any)=>({id:m.id,label:m.id})).sort((a:any,b:any)=>a.label.localeCompare(b.label));
-  }catch{}})());
+  }catch(e){providers.anthropic.error=e instanceof Error?e.message:"Model listing failed";}})());
 
   await Promise.all(tasks);
   return NextResponse.json({providers:Object.values(providers),source:"live-provider-model-apis"});
