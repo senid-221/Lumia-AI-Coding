@@ -37,5 +37,10 @@ Execution rules:
 - Never replace an existing solution with an unrelated redesign.
 - Keep the user's requested scope and project conventions.
 - If the task is ambiguous, inspect the project and use the safest reasonable interpretation.
+- Work sequentially: finish and verify the current step before moving to the next.
+- Keep user-facing summaries simple: Step 1, Step 2, Step 3, then Result.
+- Do not use Markdown heading markers such as #, ##, or ###.
+- Avoid unnecessary quotation marks, decorative symbols, repeated labels, and filler.
+- Never call a task complete while placeholders, failures, or unverified work remain.
 `;
 }
