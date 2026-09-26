@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { runAutonomousCodingTask, type ProviderId } from "@/lib/agent/orchestrator";
 import { isSimpleConversation, runConversationalProvider } from "@/lib/agent/conversation";
 import { looksLikeConversation, looksLikeCodingTask } from "@/lib/agent/policy";
+import { rememberExplicitUserContext } from "@/lib/agent/memory";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -58,8 +59,11 @@ export async function POST(req:Request){
     conversation=await prisma.conversation.create({data:{userId:session.user.id,projectId:project.id,title:task.slice(0,80)}});
 
   await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:task}});
+  await rememberExplicitUserContext(session.user.id, task);
   const storedHistory=await prisma.message.findMany({where:{conversationId:conversation.id},orderBy:{createdAt:"asc"},take:30});
   const history=storedHistory.map(m=>({role:m.role==="USER"?"user" as const:"assistant" as const,content:m.content}));
+  const userMemories=await prisma.userMemory.findMany({where:{userId:session.user.id},orderBy:{updatedAt:"desc"},take:30,select:{kind:true,key:true,content:true}});
+  const memoryContext=userMemories.map(m=>`[${m.kind}] ${m.key}: ${m.content}`).join("\n");
 
   const stream=new ReadableStream({
     async start(controller){
@@ -70,7 +74,7 @@ export async function POST(req:Request){
 
       try{
         if(agent==="ai-agent" && (isSimpleConversation(task) || (looksLikeConversation(task) && !looksLikeCodingTask(task)))){
-          const result=await runConversationalProvider(provider,requestedModel||undefined,task,history);
+          const result=await runConversationalProvider(provider,requestedModel||undefined,task,history,memoryContext);
           await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});
           send({type:"message",text:result.text});
           send({type:"complete",toolCount:0,turns:0});
