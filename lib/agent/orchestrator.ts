@@ -12,7 +12,8 @@ export async function runAutonomousCodingTask(
   conversationId:string,
   prompt:string,
   history:ContextMessage[],
-  onEvent:(event:any)=>void
+  onEvent:(event:any)=>void,
+  existingExecutionId?:string
 ){
   const specialistTurns=Math.max(1,Math.min(Number(process.env.LUMIA_SPECIALIST_TURNS||4),8));
   const projectContext=await getProjectContext(projectId,conversationId);
@@ -22,7 +23,9 @@ export async function runAutonomousCodingTask(
     projectContext.memories.length ? "Project memory:\n"+projectContext.memories.map(m=>`[${m.kind}] ${m.key}: ${m.content}`).join("\n") : "",
     projectContext.executions.length ? "Recent executions:\n"+projectContext.executions.map(e=>`[${e.status}] ${e.prompt.slice(0,240)}${e.error?` -> ${e.error}`:""}`).join("\n") : ""
   ].filter(Boolean).join("\n\n");
-  const execution=await prisma.agentExecution.create({data:{projectId,conversationId,status:"RUNNING",prompt}});
+  const execution=existingExecutionId
+    ? await prisma.agentExecution.update({where:{id:existingExecutionId},data:{status:"RUNNING",cancelRequested:false,heartbeatAt:new Date(),error:null,finishedAt:null}})
+    : await prisma.agentExecution.create({data:{projectId,conversationId,status:"RUNNING",prompt}});
   const shared:string[]=[];
   let toolCount=0;
   let turns=0;
