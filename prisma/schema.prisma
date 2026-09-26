@@ -87,6 +87,11 @@ model AgentExecution {
   toolCount Int @default(0)
   startedAt DateTime @default(now())
   finishedAt DateTime?
+  cancelRequested Boolean @default(false)
+  heartbeatAt DateTime?
+  parentExecutionId String?
+  parentExecution AgentExecution? @relation("ExecutionResumes", fields:[parentExecutionId], references:[id], onDelete:SetNull)
+  resumedExecutions AgentExecution[] @relation("ExecutionResumes")
   project Project? @relation(fields:[projectId], references:[id], onDelete:SetNull)
   conversation Conversation? @relation(fields:[conversationId], references:[id], onDelete:SetNull)
 }
