@@ -32,7 +32,8 @@ export async function runConversationalProvider(
   requestedModel: string | undefined,
   input: string,
   history: { role: "user" | "assistant"; content: string }[],
-  memoryContext = ""
+  memoryContext = "",
+  onEvent?: (event: { type: string; text?: string; detail?: string }) => void
 ): Promise<ConversationResult> {
   const model = modelIdForLabel(provider, requestedModel); 
   const systemPrompt = memoryContext ? SYSTEM_PROMPT + "\n\nRelevant long-term memory:\n" + memoryContext : SYSTEM_PROMPT;
