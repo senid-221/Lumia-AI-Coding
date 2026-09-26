@@ -4,19 +4,23 @@ import { ensureProjectWorkspace } from "./workspace";
 
 const ALLOWED = new Set(["node","npm","npx","pnpm","yarn","python","python3","git"]);
 const BLOCKED = new Set(["sudo","rm","rmdir","del","shutdown","reboot","format","mkfs","curl","wget"]);
+const GIT_ALLOWED = new Set(["status","diff","log","branch","show"]);
+const PACKAGE_ALLOWED = new Set(["install","ci","test","run","build","lint","typecheck","check","dev"]);
 
 export type RunResult = { command:string; args:string[]; code:number|null; stdout:string; stderr:string; timedOut:boolean; durationMs:number };
 
-function assertArgs(args:string[]) {
+function assertArgs(command:string,args:string[]) {
   for (const arg of args) {
     if (arg.includes(String.fromCharCode(0)) || /[;&|<>`$]/.test(arg)) throw new Error("Unsafe shell characters are not allowed");
     if (BLOCKED.has(path.basename(arg).toLowerCase())) throw new Error("Destructive, network, or privilege command is not allowed");
   }
+  if (command === "git" && (!args[0] || !GIT_ALLOWED.has(args[0].toLowerCase()))) throw new Error("Git subcommand is not allowed");
+  if (["npm","pnpm","yarn"].includes(command) && args[0] && !PACKAGE_ALLOWED.has(args[0].toLowerCase())) throw new Error("Package-manager command is not allowed");
 }
 
 export async function runProjectCommand(projectId:string, command:string, args:string[]=[]):Promise<RunResult> {
   if (!ALLOWED.has(command)) throw new Error("Command is not allowed");
-  assertArgs(args);
+  assertArgs(command,args);
   const cwd=await ensureProjectWorkspace(projectId);
   const started=Date.now();
   const timeoutMs=Number(process.env.LUMIA_COMMAND_TIMEOUT_MS || 120000);
