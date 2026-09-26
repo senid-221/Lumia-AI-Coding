@@ -134,6 +134,7 @@ async function runOpenAIResponses(
             continue;
           }
 
+          assertToolPermission(role, name);
           output=String(await executeTool(name,args,projectId || ""));
           onEvent({type:"tool_result",tool:name,detail:output.slice(0,4000)});
         } catch(error) {
