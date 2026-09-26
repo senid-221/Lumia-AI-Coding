@@ -14,8 +14,7 @@ const providerModels: Record<string,string[]> = {
   Anthropic:["Haiku 4.5","Sonnet 4.6","Opus 4.6","Opus 4.7"],
   OpenAI:["GPT-5.3 Codex","GPT-5.4","GPT-5.4-mini","GPT-5.5"],
   Google:["Gemini Pro 3.1","Gemini Flash 3.0"],
-  xAI:["Grok Code Fast 1"],
-  Zencoder:["Auto","Auto+"]
+  xAI:["Grok Code Fast 1"]
 };
 const providers=Object.keys(providerModels);
 
@@ -48,7 +47,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     if (!value || busy) return;
     setTask(""); setError(""); setMessages(m=>[...m,{role:"user",content:value}]); setBusy(true);
     try {
-      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider:provider.toLowerCase().replace("zencoder","zencode"),model})});
+      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider:provider.toLowerCase(),model})});
       if (!res.ok || !res.body) throw new Error((await res.json().catch(()=>({}))).error || "Request failed");
       const reader = res.body.getReader(), decoder = new TextDecoder();
       let assistant = "";
