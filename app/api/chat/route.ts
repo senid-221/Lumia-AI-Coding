@@ -21,25 +21,19 @@ function normalizeProvider(value:unknown):ProviderId {
   return "openai";
 }
 
-export async function GET(){
+export async function GET(req:Request){
   const session=await auth();
   if(!session?.user?.id) return NextResponse.json({error:"Unauthorized"},{status:401});
-
+  const requestedId=new URL(req.url).searchParams.get("conversationId");
   const conversation=await prisma.conversation.findFirst({
-    where:{userId:session.user.id},
+    where:{userId:session.user.id,...(requestedId?{id:requestedId}: {})},
     orderBy:{updatedAt:"desc"},
     include:{messages:{orderBy:{createdAt:"asc"},take:100,select:{id:true,role:true,content:true,createdAt:true}}}
   });
-
   if(!conversation) return NextResponse.json({conversation:null,messages:[]});
-
   return NextResponse.json({
     conversation:{id:conversation.id,title:conversation.title,createdAt:conversation.createdAt,updatedAt:conversation.updatedAt},
-    messages:conversation.messages.map(message=>({
-      id:message.id,
-      role:message.role==="USER"?"user":"assistant",
-      content:message.content
-    }))
+    messages:conversation.messages.map(message=>({id:message.id,role:message.role==="USER"?"user":"assistant",content:message.content}))
   });
 }
 
