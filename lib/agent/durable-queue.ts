@@ -10,7 +10,9 @@ export type AgentJob={executionId:string;projectId:string;conversationId:string;
 
 export async function enqueueAgentJob(job:AgentJob){
   if(!redis) return false;
-  await redis.rpush(queueKey,JSON.stringify(job));
+  const id=job.executionId || crypto.randomUUID();
+  const queued={...job,executionId:id};
+  await redis.rpush(queueKey,JSON.stringify(queued));
   return true;
 }
 
