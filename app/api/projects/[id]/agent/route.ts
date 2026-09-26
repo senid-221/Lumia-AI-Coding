@@ -32,21 +32,24 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
 
   const stream=new ReadableStream({
     async start(controller){
-      let emittedExecutionId:string|undefined;
       const encoder=new TextEncoder();
       const send=(data:unknown)=>controller.enqueue(encoder.encode(sse(data)));
       send({type:"conversation",id:conversation.id});
       if(resumeExecutionId) send({type:"resume",executionId:resumeExecutionId});
 
       try{
+        let executionId=resumeExecutionId||undefined;
         const result=await runAutonomousCodingTask(
           id,conversation.id,prompt||existing?.prompt||"",
           [{role:"user",content:prompt||existing?.prompt||""}],
-          event=>send(event),
+          event=>{
+            if(event?.executionId) executionId=event.executionId;
+            send(event);
+          },
           resumeExecutionId||undefined
         );
         await prisma.message.create({data:{conversationId:conversation.id,role:"ASSISTANT",content:result.text}});
-        send({type:"complete",toolCount:result.toolCount,turns:result.turns});
+        send({type:"complete",executionId,toolCount:result.toolCount,turns:result.turns});
       }catch(error){
         send({type:"error",error:error instanceof Error?error.message:"Agent execution failed"});
       }finally{
