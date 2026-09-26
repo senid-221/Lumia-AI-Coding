@@ -81,7 +81,7 @@ export async function runAutonomousCodingTask(
 
     const maxRepairPasses = Math.max(0, Math.min(Number(process.env.LUMIA_REPAIR_PASSES || 2), 3));
     let verification = "";
-    let debug = "";
+    let debugResult = "";
     let repairPasses = 0;
     let verificationPassed = false;
 
@@ -89,7 +89,7 @@ export async function runAutonomousCodingTask(
       verification = await roleRun(
         "verifier",
         prompt + "\nReview:\n" + review +
-        (debug ? "\nDebugger:\n" + debug : "") +
+        (debugResult ? "\nDebugger:\n" + debugResult : "") +
         (repairPasses ? "\nRepair pass " + repairPasses + " was applied. Verify the repaired project again." : "") +
         "\nVerify the current project using available tools. Run at least one objective verification command when the project supports it. Report the command and its actual result. End with exactly one status line: VERIFICATION_STATUS: PASS or VERIFICATION_STATUS: FAIL."
       );
@@ -100,7 +100,7 @@ export async function runAutonomousCodingTask(
       if (repairPasses >= maxRepairPasses) break;
 
       repairPasses++;
-      debug = await roleRun(
+      debugResult = await roleRun(
         "debugger",
         prompt + "\nVerifier evidence:\n" + verification +
         "\nRepair pass " + repairPasses +
@@ -113,8 +113,8 @@ export async function runAutonomousCodingTask(
       "Step 1: Understand and plan\n" + plan,
       "Step 2: Work on the project\n" + implementation,
       "Step 3: Review\n" + review,
-      debug ? "Step 4: Repair\n" + debug : "",
-      "Step " + (debug ? "5" : "4") + ": Verify\n" + verification,
+      debugResult ? "Step 4: Repair\n" + debugResult : "",
+      "Step " + (debugResult ? "5" : "4") + ": Verify\n" + verification,
       verificationPassed ? "Result: Verification passed based on explicit verifier evidence." : "Result: Verification did not pass. Lumia will not report this task as completed."
     ].filter(Boolean).join("\n\n");
 
