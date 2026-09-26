@@ -13,6 +13,7 @@ async function processJob(){
     await prisma.agentExecution.create({data:{id:job.executionId,projectId:job.projectId,conversationId:job.conversationId,status:"QUEUED",prompt:job.prompt}});
   }
   if(["CANCELLED","SUCCEEDED"].includes(execution?.status||""))return true;
+  await prisma.agentExecution.updateMany({where:{id:job.executionId},data:{status:"RUNNING",queueAttempts:{increment:1},heartbeatAt:new Date()}});
   if(["CANCELLED","SUCCEEDED"].includes(execution.status))return true;
 
   try{
