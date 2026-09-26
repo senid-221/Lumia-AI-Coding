@@ -3,6 +3,7 @@ import { getProjectContext, upsertProjectMemory } from "./memory";
 import { openAIProvider } from "./provider";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
+import { isExecutionActive } from "./execution-control";
 
 type ContextMessage={role:"user"|"assistant";content:string};
 
@@ -28,12 +29,14 @@ export async function runAutonomousCodingTask(
 
   const roleRun=async(role:SpecialistRole,task:string)=>{
     onEvent({type:"specialist_start",role,name:SPECIALISTS[role].name});
+    if(!isExecutionActive(execution.id)) throw new Error("Execution cancelled.");
     const result=await openAIProvider.run(
       specialistPrompt(role,task,shared.join("\n\n").slice(-12000)),
       effectiveHistory,
       TOOL_DEFINITIONS.map(tool=>tool as any),
       event=>onEvent({...event,role}),
-      specialistTurns
+      specialistTurns,
+      execution.id
     );
     toolCount+=result.toolCount;
     turns+=result.turns;
