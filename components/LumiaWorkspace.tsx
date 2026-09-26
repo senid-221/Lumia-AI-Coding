@@ -5,7 +5,7 @@ import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2 } from "lucide-react
 
 type Msg = { role:"user"|"assistant"; content:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
-const providers=["OpenAI","Anthropic","Google"];
+const providers=["OpenAI","Anthropic","Google","Zencode"];
 const models=["gpt-5.5","Sonnet 4.5","Gemini"];
 
 export default function LumiaWorkspace({ accountControl }: { accountControl: React.ReactNode }) {
