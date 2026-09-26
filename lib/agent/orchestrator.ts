@@ -4,19 +4,15 @@ import { runModelProvider } from "./provider";
 import type { ModelProvider } from "./model-router";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
+import { loadProjectRules } from "./rule-loader";
 
 type ContextMessage = { role: "user" | "assistant"; content: string };
 export type ProviderId = ModelProvider;
 
 export async function runAutonomousCodingTask(
-  projectId: string,
-  conversationId: string,
-  prompt: string,
-  history: ContextMessage[],
-  onEvent: (event: any) => void,
-  existingExecutionId?: string,
-  provider: ProviderId = "openai",
-  model?: string
+  projectId: string, conversationId: string, prompt: string, history: ContextMessage[],
+  onEvent: (event: any) => void, existingExecutionId?: string,
+  provider: ProviderId = "openai", model?: string
 ) {
   const specialistTurns = Math.max(1, Math.min(Number(process.env.LUMIA_SPECIALIST_TURNS || 4), 8));
   const projectContext = await getProjectContext(projectId, conversationId);
@@ -24,52 +20,31 @@ export async function runAutonomousCodingTask(
   const effectiveHistory = projectContext.history.length ? projectContext.history : history;
   const contextSummary = [
     projectContext.project ? `Project: ${projectContext.project.name} (${projectContext.project.slug})` : "",
-    projectContext.memories.length
-      ? "Project memory:\n" + projectContext.memories.map(m => `[${m.kind}] ${m.key}: ${m.content}`).join("\n")
-      : "",
-    projectContext.userMemories?.length
-      ? "User memory:\n" + projectContext.userMemories.map(m => `[${m.kind}] ${m.key}: ${m.content}`).join("\n")
-      : "",
-    projectContext.executions.length
-      ? "Recent executions:\n" + projectContext.executions.map(e => `[${e.status}] ${e.prompt.slice(0, 240)}${e.error ? ` -> ${e.error}` : ""}`).join("\n")
-      : ""
+    projectContext.memories.length ? "Project memory:\n" + projectContext.memories.map(m => `[${m.kind}] ${m.key}: ${m.content}`).join("\n") : "",
+    projectContext.userMemories?.length ? "User memory:\n" + projectContext.userMemories.map(m => `[${m.kind}] ${m.key}: ${m.content}`).join("\n") : "",
+    projectContext.executions.length ? "Recent executions:\n" + projectContext.executions.map(e => `[${e.status}] ${e.prompt.slice(0, 240)}${e.error ? ` -> ${e.error}` : ""}`).join("\n") : ""
   ].filter(Boolean).join("\n\n");
 
   const execution = existingExecutionId
-    ? await prisma.agentExecution.update({
-        where: { id: existingExecutionId },
-        data: { status: "RUNNING", cancelRequested: false, heartbeatAt: new Date(), error: null, finishedAt: null }
-      })
-    : await prisma.agentExecution.create({
-        data: { projectId, conversationId, status: "RUNNING", prompt }
-      });
+    ? await prisma.agentExecution.update({ where: { id: existingExecutionId }, data: { status: "RUNNING", cancelRequested: false, heartbeatAt: new Date(), error: null, finishedAt: null } })
+    : await prisma.agentExecution.create({ data: { projectId, conversationId, status: "RUNNING", prompt } });
 
   const shared: string[] = [];
-  let toolCount = 0;
-  let turns = 0;
+  let toolCount = 0, turns = 0;
 
   const roleRun = async (role: SpecialistRole, task: string) => {
     onEvent({ type: "specialist_start", role, name: SPECIALISTS[role].name });
-
     const sharedContext = [contextSummary, ...shared].filter(Boolean).join("\n\n").slice(-12000);
+    const projectRules = await loadProjectRules(projectId, role);
     const result = await runModelProvider(
-      provider,
-      model,
-      specialistPrompt(role, task, sharedContext),
-      effectiveHistory,
+      provider, model, specialistPrompt(role, task, sharedContext, projectRules), effectiveHistory,
       TOOL_DEFINITIONS.map(tool => tool as any),
       event => {
         onEvent({ ...event, role });
-        void prisma.executionEvent.create({
-          data:{executionId:execution.id,type:String(event.type),data:JSON.stringify({...event,role}).slice(0,20000)}
-        }).catch(()=>undefined);
+        void prisma.executionEvent.create({ data:{executionId:execution.id,type:String(event.type),data:JSON.stringify({...event,role}).slice(0,20000)} }).catch(()=>undefined);
       },
-      specialistTurns,
-      execution.id,
-      role,
-      projectId
+      specialistTurns, execution.id, role, projectId
     );
-
     toolCount += result.toolCount;
     turns += result.turns;
     shared.push(SPECIALISTS[role].name + ": " + result.text);
@@ -83,7 +58,7 @@ export async function runAutonomousCodingTask(
     const review = await roleRun("reviewer", prompt + "\nImplementation:\n" + implementation);
 
     let debug = "";
-    if (/fail|error|bug|regression|missing|incorrect|broken/i.test(review)) {
+    if (/\b(fail|error|bug|regression|missing|incorrect|broken)\b/i.test(review)) {
       debug = await roleRun("debugger", prompt + "\nReview findings:\n" + review + "\nRepair the project.");
     }
 
@@ -98,23 +73,18 @@ export async function runAutonomousCodingTask(
         prompt + "\nReview:\n" + review +
         (debug ? "\nDebugger:\n" + debug : "") +
         (repairPasses ? "\nRepair pass " + repairPasses + " was applied. Verify the repaired project again." : "") +
-        "\nVerify the current project using available tools. Report concrete command output and whether the requested outcome is actually satisfied."
+        "\nVerify the current project using available tools. Run at least one objective verification command when the project supports it. Report the command and its actual result. End with exactly one status line: VERIFICATION_STATUS: PASS or VERIFICATION_STATUS: FAIL."
       );
 
-      const failureEvidence = /\b(fail(?:ed|ure)?|error|broken|incorrect|missing|regression|does not|doesn't|not working|unable|cannot|cannot verify|not verified)\b/i.test(verification);
-
-      if (!failureEvidence) {
-        verificationPassed = true;
-        break;
-      }
-
+      const statusMatch = verification.match(/VERIFICATION_STATUS:\s*(PASS|FAIL)\b/i);
+      verificationPassed = statusMatch?.[1]?.toUpperCase() === "PASS";
+      if (verificationPassed) break;
       if (repairPasses >= maxRepairPasses) break;
 
       repairPasses++;
       debug = await roleRun(
         "debugger",
-        prompt +
-        "\nVerifier failure evidence:\n" + verification +
+        prompt + "\nVerifier evidence:\n" + verification +
         "\nRepair pass " + repairPasses +
         ": inspect the actual failure, make the smallest safe repair, and do not claim success until the next verifier pass confirms it."
       );
@@ -127,29 +97,15 @@ export async function runAutonomousCodingTask(
       "Step 3: Review\n" + review,
       debug ? "Step 4: Repair\n" + debug : "",
       "Step " + (debug ? "5" : "4") + ": Verify\n" + verification,
-      verificationPassed
-        ? "Result: Verification passed based on the verifier's current evidence."
-        : "Result: Verification did not pass. Lumia will not report this task as completed."
+      verificationPassed ? "Result: Verification passed based on explicit verifier evidence." : "Result: Verification did not pass. Lumia will not report this task as completed."
     ].filter(Boolean).join("\n\n");
 
-    await prisma.agentExecution.update({
-      where: { id: execution.id },
-      data: { status: resultStatus, result: final, toolCount, finishedAt: new Date() }
-    });
+    await prisma.agentExecution.update({ where: { id: execution.id }, data: { status: resultStatus, result: final, toolCount, finishedAt: new Date() } });
     await upsertProjectMemory(projectId, "execution", "last-result", final.slice(-12000));
-
     return { text: final, toolCount, turns };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Specialist pipeline failed";
-    await prisma.agentExecution.update({
-      where: { id: execution.id },
-      data: {
-        status: message === "Execution cancelled." ? "CANCELLED" : "FAILED",
-        error: message,
-        toolCount,
-        finishedAt: new Date()
-      }
-    });
+    await prisma.agentExecution.update({ where: { id: execution.id }, data: { status: message === "Execution cancelled." ? "CANCELLED" : "FAILED", error: message, toolCount, finishedAt: new Date() } });
     throw error;
   }
 }
