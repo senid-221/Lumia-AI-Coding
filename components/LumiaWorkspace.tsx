@@ -10,13 +10,10 @@ const agents=[
   "ai-agent","coding-agent","unit-test","ask","e2e-test","repo-info","web-dev",
   "planner","coder","reviewer","debugger","verifier","hacking-lab"
 ];
-const providerModels: Record<string,string[]> = {
-  Anthropic:["Haiku 4.5","Sonnet 4.6","Opus 4.6","Opus 4.7"],
-  OpenAI:["GPT-5.3 Codex","GPT-5.4","GPT-5.4-mini","GPT-5.5"],
-  Google:["Gemini Pro 3.1","Gemini Flash 3.0"],
-  xAI:["Grok Code Fast 1"]
-};
-const providers=Object.keys(providerModels);
+type ModelOption = { id:string; label:string };
+type ProviderOption = { id:string; label:string; models:ModelOption[]; configured?:boolean; error?:string };
+const providerNames:Record<string,string>={anthropic:"Anthropic",openai:"OpenAI",google:"Google",xai:"xAI",groq:"Groq"};
+const providerIds=Object.keys(providerNames);
 
 export default function LumiaWorkspace({ accountControl }: { accountControl: React.ReactNode }) {
   const [task,setTask] = useState("");
@@ -26,13 +23,19 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [conversationId,setConversationId] = useState<string>();
   const [menu,setMenu] = useState<MenuState>("none");
   const [agent,setAgent] = useState("ai-agent");
-  const [provider,setProvider] = useState("OpenAI");
-  const [model,setModel] = useState("GPT-5.5");
+  const [provider,setProvider] = useState("openai");
+  const [model,setModel] = useState("");
   const [skipInstall,setSkipInstall] = useState(false);
   const [timerOn,setTimerOn] = useState(true);
-  const [notice,setNotice] = useState("");\n  const [liveProviders,setLiveProviders] = useState<{id:string;label:string;models:{id:string;label:string}[]}[]>([]);
+  const [notice,setNotice] = useState("");
+  const [liveProviders,setLiveProviders] = useState<ProviderOption[]>([]);
+  const [modelsLoading,setModelsLoading] = useState(true);
+  const [modelSearch,setModelSearch] = useState("");
   const rootRef=useRef<HTMLElement>(null);
-  const providerEntry=liveProviders.find(p=>p.label===provider || p.id===provider.toLowerCase());\n  const providerModels=Object.fromEntries(liveProviders.map(p=>[p.label,p.models.map(m=>m.label)]));\n  const effectiveModels=providerModels[provider] || fallbackProviderModels[provider] || [];\n  const models=effectiveModels;\n  const providers=liveProviders.length ? liveProviders.map(p=>p.label) : Object.keys(fallbackProviderModels);
+  const providerEntry=liveProviders.find(p=>p.id===provider);
+  const models=providerEntry?.models || [];
+  const selectedModel=models.find(m=>m.id===model);
+
 
   useEffect(()=>{
     const close=(e:MouseEvent)=>{ if(rootRef.current && !rootRef.current.contains(e.target as Node)) setMenu("none"); };
@@ -40,14 +43,28 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     return()=>document.removeEventListener("mousedown",close);
   },[]);
 
-  useEffect(()=>{\n    let cancelled=false;\n    fetch("/api/models").then(r=>r.ok?r.json():null).then(data=>{ if(!cancelled && data?.providers) setLiveProviders(data.providers); }).catch(()=>{});\n    return()=>{cancelled=true};\n  },[]);\n\n  useEffect(()=>{ if(!models.includes(model)) setModel(models[0] || ""); },[provider,models.join("|"),model]);
+  useEffect(()=>{
+    let cancelled=false;
+    setModelsLoading(true);
+    fetch("/api/models",{cache:"no-store"})
+      .then(async r=>{if(!r.ok) throw new Error("Unable to load models");return r.json();})
+      .then(data=>{if(!cancelled) setLiveProviders(data.providers || []);})
+      .catch(()=>{if(!cancelled) setError("Unable to load provider models. Refresh to retry.");})
+      .finally(()=>{if(!cancelled) setModelsLoading(false);});
+    return()=>{cancelled=true;};
+  },[]);
+
+  useEffect(()=>{
+    if(!models.some(m=>m.id===model)) setModel(models[0]?.id || "");
+  },[provider,liveProviders,model]);
+
 
   async function send() {
     const value = task.trim();
     if (!value || busy) return;
     setTask(""); setError(""); setMessages(m=>[...m,{role:"user",content:value}]); setBusy(true);
     try {
-      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider:provider.toLowerCase(),model})});
+      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider,model})});
       if (!res.ok || !res.body) throw new Error((await res.json().catch(()=>({}))).error || "Request failed");
       const reader = res.body.getReader(), decoder = new TextDecoder();
       let assistant = "";
@@ -116,9 +133,16 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     <section className="composer">
       <textarea value={task} onChange={e=>setTask(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Describe what you want the AI agent to do..." rows={4}/>
       <div className="composer-footer">
-        <div className="composer-left"><button className="pill" onClick={()=>setMenu(menu==="provider"?"none":"provider")}>{provider} <ChevronDown size={12}/></button><button className="pill" onClick={()=>setMenu(menu==="model"?"none":"model")}>{model} <ChevronDown size={12}/></button><button className="pill muted" onClick={()=>setSkipInstall(v=>!v)}>Skip Install {skipInstall?"✓":""}{!skipInstall&&<X size={12}/>}</button><button className="pill muted" onClick={()=>setTimerOn(v=>!v)}>{timerOn?"10m":"Timer off"} {timerOn&&<X size={12}/>}</button></div>
-        <div className="composer-actions"><button className="icon-btn" onClick={()=>setMenu(menu==="settings"?"none":"settings")}><Settings size={17}/></button><button className="send-btn" onClick={send} disabled={busy||!task.trim()} aria-label="Send"><Send size={17}/></button></div>
-      </div>{menu==="provider"&&popup("Agent provider",providers,v=>setProvider(v))}{menu==="model"&&<div className="menu-popover model-popover"><div className="menu-title">All models</div>{(liveProviders.length?liveProviders.map(p=>[p.label,p.models.map(m=>m.label)] as const):Object.entries(fallbackProviderModels)).map(([p,ms])=><div key={p}><div className="menu-section">{p}</div>{ms.map(v=><button className="menu-item" key={p+v} onClick={()=>{setProvider(p);setModel(v);setMenu("none")}}>{v}</button>)}</div>)}</div>}{menu==="settings"&&<div className="menu-popover settings-popover"><div className="menu-title">Lumia settings</div><button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button><div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {provider} · Model: {model}</div></div>}
+        <div className="composer-left"><button className="pill" onClick={()=>setMenu(menu==="provider"?"none":"provider")}>{providerNames[provider]} <ChevronDown size={12}/></button><button className="pill" onClick={()=>setMenu(menu==="model"?"none":"model")}>{selectedModel?.label || (modelsLoading?"Loading...":"Select model")} <ChevronDown size={12}/></button><button className="pill muted" onClick={()=>setSkipInstall(v=>!v)}>Skip Install {skipInstall?"✓":""}{!skipInstall&&<X size={12}/>}</button><button className="pill muted" onClick={()=>setTimerOn(v=>!v)}>{timerOn?"10m":"Timer off"} {timerOn&&<X size={12}/>}</button></div>
+        <div className="composer-actions"><button className="icon-btn" onClick={()=>setMenu(menu==="settings"?"none":"settings")}><Settings size={17}/></button><button className="send-btn" onClick={send} disabled={busy||!task.trim()||!model} aria-label="Send"><Send size={17}/></button></div>
+      </div>
+      {menu==="provider"&&<div className="menu-popover"><div className="menu-title">Select provider</div>{providerIds.map(id=><button className="menu-item" key={id} onClick={()=>{setProvider(id);setModel("");setModelSearch("");setMenu("none");}}>{providerNames[id]}{liveProviders.find(p=>p.id===id)?.configured===false?" · API key missing":""}</button>)}</div>}
+      {menu==="model"&&<div className="menu-popover model-popover" style={{maxHeight:360,overflowY:"auto",minWidth:260}}>
+        <div className="menu-title">{providerNames[provider]} models</div>
+        <input aria-label="Search models" placeholder="Search models..." value={modelSearch} onChange={e=>setModelSearch(e.target.value)} style={{width:"100%",padding:8,marginBottom:8}}/>
+        {modelsLoading?<div className="menu-note">Loading models...</div>:providerEntry?.error?<div className="menu-note">{providerEntry.error}</div>:models.length===0?<div className="menu-note">No models returned. Check this provider's API key.</div>:models.filter(m=>(m.label+" "+m.id).toLowerCase().includes(modelSearch.toLowerCase())).map(m=><button className="menu-item" key={m.id} onClick={()=>{setModel(m.id);setMenu("none");setModelSearch("");}}>{m.label}{m.label!==m.id?<small style={{display:"block",opacity:.6}}>{m.id}</small>:null}</button>)}
+      </div>}
+      {menu==="settings"&&<div className="menu-popover settings-popover"><div className="menu-title">Lumia settings</div><button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button><div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {providerNames[provider]} · Model: {selectedModel?.label || "None"}</div></div>}
     </section>
   </main>;
 }
