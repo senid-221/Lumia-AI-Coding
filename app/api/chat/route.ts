@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { runAutonomousCodingTask, type ProviderId } from "@/lib/agent/orchestrator";
+import { isSimpleConversation, runConversationalProvider } from "@/lib/agent/conversation";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -67,6 +68,15 @@ export async function POST(req:Request){
       send({type:"provider",provider,model:requestedModel||undefined});
 
       try{
+        if(agent==="ai-agent" && isSimpleConversation(task)){
+          const result=await runConversationalProvider(provider,requestedModel||undefined,task,history);
+          await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});
+          send({type:"message",text:result.text});
+          send({type:"complete",toolCount:0,turns:0});
+          return;
+        }
+
+
         const labPrompt=agent==="hacking-lab" ? "You are Lumia Hacking Lab Agent. Educational / Authorized Lab Only. Focus on defensive security, CTFs, simulations, secure code review, vulnerability explanations, and authorized lab targets. Never perform or instruct account takeover, credential theft, OTP interception, SIM swapping, malware deployment, persistence, evasion, destructive actions, or unauthorized access. Task:\n"+task : task;
         const result=await runAutonomousCodingTask(
           project.id,
