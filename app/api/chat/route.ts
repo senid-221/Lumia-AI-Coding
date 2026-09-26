@@ -94,6 +94,7 @@ export async function POST(req:Request){
       const send=(data:unknown)=>controller.enqueue(encoder.encode(sse(data)));
       send({type:"conversation",id:conversation!.id});
       send({type:"provider",provider,model:requestedModel||undefined});
+      send({type:"language",code:detectedLanguage.code,name:detectedLanguage.name,confidence:detectedLanguage.confidence,mixed:detectedLanguage.mixed});
 
       try{
         if(agent==="ai-agent" && (isSimpleConversation(task) || (looksLikeConversation(task) && !looksLikeCodingTask(task)))){
