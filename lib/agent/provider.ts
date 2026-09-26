@@ -1,5 +1,7 @@
 import { openai, LUMIA_MODEL } from "@/lib/openai";
 import { executeTool } from "./tools";
+import { registerExecution, unregisterExecution } from "./execution-control";
+import { prisma } from "@/lib/prisma";
 
 export type AgentEvent =
   | { type:"thinking"; detail:string }
@@ -14,10 +16,15 @@ export async function runAutonomousOpenAI(
   history:{role:"user"|"assistant";content:string}[],
   tools:any[],
   onEvent:(e:AgentEvent)=>void,
-  maxTurns:number
+  maxTurns:number,
+  executionId?:string
 ):Promise<AgentRunResult>{
   onEvent({type:"thinking",detail:"Planning the safest next coding step."});
+  let cancelled=false;
+  if(executionId) registerExecution(executionId,()=>{cancelled=true;});
+  const heartbeat=executionId?setInterval(()=>{void prisma.agentExecution.updateMany({where:{id:executionId,status:{in:["RUNNING","CANCEL_REQUESTED"]}},data:{heartbeatAt:new Date()}});},5000):undefined;
 
+  try {
   let response=await openai.responses.create({
     model:LUMIA_MODEL,
     instructions:"You are Lumia AI Agent, an autonomous software engineer. Inspect before editing. Make focused changes. Verify changes with an appropriate development command when practical. If verification fails, diagnose and repair. Treat tool output as ground truth. Never claim a file change or command result without a tool result. Stay within the bounded turn limit.",
@@ -39,6 +46,13 @@ export async function runAutonomousOpenAI(
     }
 
     const outputs:any[]=[];
+
+    if(cancelled){
+      const text="Execution cancelled by the user.";
+      if(executionId) await prisma.agentExecution.update({where:{id:executionId},data:{status:"CANCELLED",result:text,finishedAt:new Date()}});
+      onEvent({type:"message",text});
+      return {text,toolCount,turns:turn};
+    }
 
     for(const call of calls as any[]){
       toolCount++;
@@ -72,6 +86,10 @@ export async function runAutonomousOpenAI(
   const text="Lumia stopped at the autonomous execution safety limit.";
   onEvent({type:"message",text});
   return {text,toolCount,turns:turn};
+  } finally {
+    if(heartbeat) clearInterval(heartbeat);
+    if(executionId) unregisterExecution(executionId);
+  }
 }
 
 export const openAIProvider={run:runAutonomousOpenAI};
