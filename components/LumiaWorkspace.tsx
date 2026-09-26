@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound } from "lucide-react";
+import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound, Info } from "lucide-react";
 
 type Msg = { role:"user"|"assistant"; content:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
-type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account";
+type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account"|"about";
 const agents=[
   "ai-agent","coding-agent","unit-test","ask","e2e-test","repo-info","web-dev",
   "planner","coder","reviewer","debugger","verifier","hacking-lab"
@@ -96,14 +96,14 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     {id:"connectors",label:"Connectors",icon:<Plug size={15}/>},
     {id:"deploy",label:"Deploy",icon:<Rocket size={15}/>},
     {id:"docs",label:"Documentation",icon:<BookOpen size={15}/>},
-    {id:"account",label:"Account",icon:<UserRound size={15}/>},
+    {id:"account",label:"Account",icon:<UserRound size={15}/>} ,\n    {id:"about",label:"About",icon:<Info size={15}/>} ,
     {id:"settings",label:"Settings",icon:<Settings size={15}/>}
   ];
 
   function handleMainAction(action:MainAction){
     setMenu("none");
     if(action==="new"){setMessages([]);setConversationId(undefined);setTask("");return;}
-    if(action==="settings"){setMenu("settings");return;}
+    if(action==="settings"){setMenu("settings");return;}\n    if(action==="about"){window.location.href="/about";return;}
     const notices: Record<string,string> = {
       services:"All Services — AI coding, agents, Hacking Lab, Git, reviews and automation.",
       history:"History — your previous Lumia conversations and agent runs.",
@@ -111,7 +111,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       connectors:"Connectors — connect GitHub, Google, databases and external tools.",
       deploy:"Deploy — prepare this project for production deployment.",
       docs:"Documentation — Lumia AI Agent platform guides and services.",
-      account:"Account — manage your Lumia profile and authentication."
+      account:"Account — manage your Lumia profile and authentication.",\n      about:"About — learn more about Lumia AI Agent."
     };
     setNotice(notices[action]);
     window.setTimeout(()=>setNotice(""),4500);
