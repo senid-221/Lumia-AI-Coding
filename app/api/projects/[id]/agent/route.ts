@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { runAutonomousCodingTask } from "@/lib/agent/orchestrator";
 import { NextResponse } from "next/server";
+import { enqueueAgentJob } from "@/lib/agent/durable-queue";
 
 export const runtime="nodejs";
 const sse=(data:unknown)=>"data: "+JSON.stringify(data)+"\n\n";
@@ -29,6 +30,12 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
     ? await prisma.conversation.findUniqueOrThrow({where:{id:existing.conversationId}})
     : await prisma.conversation.create({data:{userId:session.user.id,projectId:id,title:prompt.slice(0,80)}});
   if(prompt) await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:prompt}});
+  if(!resumeExecutionId){
+    const queued=await enqueueAgentJob({executionId:"",projectId:id,conversationId:conversation.id,prompt});
+    if(queued){
+      return NextResponse.json({queued:true,conversationId:conversation.id});
+    }
+  }
 
   const stream=new ReadableStream({
     async start(controller){
