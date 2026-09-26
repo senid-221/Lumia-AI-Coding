@@ -17,6 +17,13 @@ model User {
   sessions      Session[]
   projects      Project[]
   conversations Conversation[]
+  projectMembers ProjectMember[]
+  providerUsage ProviderUsage[]
+  apiKeys ApiKey[]
+  integrations Integration[]
+  agentTasks AgentTask[]
+  notifications Notification[]
+  auditLogs AuditLog[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -66,6 +73,14 @@ model Project {
   conversations Conversation[]
   executions    AgentExecution[]
   memories      ProjectMemory[]
+  members       ProjectMember[]
+  settings      ProjectSettings?
+  attachments   Attachment[]
+  providerUsage ProviderUsage[]
+  gitRepositories GitRepository[]
+  agentTasks    AgentTask[]
+  hackingTargets HackingLabTarget[]
+  auditLogs     AuditLog[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
@@ -81,6 +96,8 @@ model Conversation {
   project    Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
   messages   Message[]
   executions AgentExecution[]
+  attachments Attachment[]
+  agentTasks AgentTask[]
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 }
@@ -91,6 +108,7 @@ model Message {
   role           String
   content        String       @db.Text
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  attachments    Attachment[]
   createdAt      DateTime     @default(now())
 }
 
@@ -110,6 +128,8 @@ model AgentExecution {
   parentExecutionId String?
   parentExecution   AgentExecution?  @relation("ExecutionResumes", fields: [parentExecutionId], references: [id], onDelete: SetNull)
   resumedExecutions AgentExecution[] @relation("ExecutionResumes")
+  events            ExecutionEvent[]
+  toolCalls         ToolCall[]
   queueAttempts     Int             @default(0)
   project           Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   conversation      Conversation?   @relation(fields: [conversationId], references: [id], onDelete: SetNull)
@@ -128,4 +148,317 @@ model ProjectMemory {
 
   @@unique([projectId, key])
   @@index([projectId, kind])
+}
+
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String   @default("member")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model ProjectSettings {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  provider  String?
+  model     String?
+  settings  String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Attachment {
+  id           String       @id @default(cuid())
+  messageId    String?
+  projectId    String?
+  name         String
+  mimeType     String?
+  size         Int?
+  url          String?
+  storageKey   String?
+  createdAt    DateTime     @default(now())
+
+  message Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([projectId])
+}
+
+model ExecutionEvent {
+  id          String         @id @default(cuid())
+  executionId String
+  type        String
+  data        String?        @db.Text
+  createdAt   DateTime       @default(now())
+
+  execution AgentExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, createdAt])
+}
+
+model ToolCall {
+  id          String         @id @default(cuid())
+  executionId String
+  tool        String
+  input       String?        @db.Text
+  output      String?        @db.Text
+  status      String         @default("completed")
+  startedAt   DateTime       @default(now())
+  finishedAt  DateTime?
+
+  execution AgentExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId, startedAt])
+}
+
+model AIProvider {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  baseUrl     String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  models      AIModel[]
+  usage       ProviderUsage[]
+}
+
+model AIModel {
+  id          String   @id @default(cuid())
+  providerId  String
+  key         String
+  name        String
+  enabled     Boolean  @default(true)
+  contextSize Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  provider AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, key])
+}
+
+model ProviderUsage {
+  id          String   @id @default(cuid())
+  providerId  String
+  userId      String?
+  projectId   String?
+  model       String?
+  inputTokens Int      @default(0)
+  outputTokens Int     @default(0)
+  cost        Float?
+  createdAt   DateTime @default(now())
+
+  provider AIProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  user     User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project  Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([providerId, createdAt])
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model ApiKey {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  keyHash    String   @unique
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Integration {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  String
+  name      String
+  status    String   @default("active")
+  config    String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, provider])
+}
+
+model GitRepository {
+  id        String   @id @default(cuid())
+  projectId String
+  provider  String   @default("github")
+  owner     String?
+  name      String
+  url       String?
+  defaultBranch String @default("main")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branches  GitBranch[]
+  commits   GitCommit[]
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, provider, name])
+}
+
+model GitBranch {
+  id           String   @id @default(cuid())
+  repositoryId String
+  name         String
+  sha          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  repository GitRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, name])
+}
+
+model GitCommit {
+  id           String   @id @default(cuid())
+  repositoryId String
+  sha          String
+  message      String?  @db.Text
+  author       String?
+  createdAt    DateTime @default(now())
+
+  repository GitRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, sha])
+  @@index([repositoryId, createdAt])
+}
+
+model AgentTask {
+  id           String   @id @default(cuid())
+  projectId    String?
+  conversationId String?
+  userId       String
+  type         String   @default("coding")
+  status       String   @default("queued")
+  prompt       String   @db.Text
+  priority     Int      @default(0)
+  scheduledAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  runs         TaskRun[]
+
+  project      Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, priority])
+  @@index([userId, createdAt])
+}
+
+model TaskRun {
+  id         String   @id @default(cuid())
+  taskId     String
+  executionId String?
+  attempt    Int      @default(1)
+  status     String   @default("running")
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+
+  task AgentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, startedAt])
+}
+
+model HackingLabTarget {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  targetType  String
+  target      String
+  authorized  Boolean  @default(false)
+  labMode     Boolean  @default(true)
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  findings    SecurityFinding[]
+  reports     LabReport[]
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+model SecurityFinding {
+  id          String   @id @default(cuid())
+  targetId    String
+  severity    String   @default("info")
+  title       String
+  description String?  @db.Text
+  evidence    String?  @db.Text
+  remediation String?  @db.Text
+  status      String   @default("open")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  target HackingLabTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([targetId, severity])
+}
+
+model LabReport {
+  id        String   @id @default(cuid())
+  targetId  String
+  title     String
+  summary   String?  @db.Text
+  content   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  target HackingLabTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([targetId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String?  @db.Text
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  projectId String?
+  action    String
+  resource  String?
+  resourceId String?
+  metadata  String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([action, createdAt])
 }
