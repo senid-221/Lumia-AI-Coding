@@ -3,7 +3,7 @@ import { executeTool } from "./tools";
 import { registerExecution, unregisterExecution } from "./execution-control";
 import { prisma } from "@/lib/prisma";
 import { hasProviderKey, modelIdForLabel } from "./model-router";
-export type ModelProvider = "anthropic"|"openai"|"google"|"xai";
+export type ModelProvider = "anthropic"|"openai"|"google"|"xai"|"groq";
 
 export type AgentEvent =
   | { type:"thinking"; detail:string }
@@ -19,7 +19,7 @@ const instructions =
   "Do not answer with a tutorial instead of acting. Treat tool output as ground truth. Never claim a change or command result without a tool result. " +
   "Stay within the bounded execution limit.";
 
-function openAICompatibleClient(provider: "openai"|"google"|"xai") {
+function openAICompatibleClient(provider: "openai"|"google"|"xai"|"groq") {
   if (provider === "openai") return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   if (provider === "google") return new OpenAI({
     apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
@@ -44,7 +44,7 @@ function normalizeChatTools(tools:any[]) {
 }
 
 async function runChatProvider(
-  provider: "openai"|"google"|"xai",
+  provider: "openai"|"google"|"xai"|"groq",
   model: string,
   input: string,
   history:{role:"user"|"assistant";content:string}[],
