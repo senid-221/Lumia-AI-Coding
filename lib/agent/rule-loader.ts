@@ -14,7 +14,13 @@ const RULE_FILES = [
   ".lumia/rules/database.md",
   ".lumia/rules/testing.md",
   ".lumia/rules/deployment.md",
-  ".lumia/rules/research.md"
+  ".lumia/rules/research.md",
+  ".lumia/rules/tool-permissions.md",
+  ".lumia/rules/memory.md",
+  ".lumia/rules/context.md",
+  ".lumia/rules/agents.md",
+  ".lumia/rules/verification.md",
+  ".lumia/rules/communication.md"
 ] as const;
 
 const ROLE_FILES: Record<SpecialistRole, string> = {
