@@ -1,4 +1,6 @@
 import path from "node:path";
+import { createHash } from "node:crypto";
+import { prisma } from "@/lib/prisma";
 import { listProjectFiles, readProjectFile } from "./project-files";
 import { runProjectCommand } from "./command-runner";
 import { loadProjectRules } from "./rule-loader";
@@ -16,6 +18,8 @@ export type ProjectContextSnapshot = {
 const MAX_FILES = 400;
 const MAX_MANIFEST_ITEMS = 80;
 const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_MEMORY_KEY = "project-context:snapshot";
+const SNAPSHOT_MAX_BYTES = 20000;
 
 function unique(values: string[]) { return [...new Set(values)].sort(); }
 
@@ -46,6 +50,39 @@ function detectStack(files: string[], pkg: any | null) {
   const languages = files.map(f => extMap[path.extname(f).toLowerCase()]).filter(Boolean) as string[];
   if (files.includes("package.json") && !languages.length) languages.push("JavaScript");
   return { languages: unique(languages), frameworks: unique(frameworks) };
+}
+
+function snapshotFingerprint(context: Omit<ProjectContextSnapshot, "inspectedAt">) {
+  return createHash("sha256").update(JSON.stringify(context)).digest("hex");
+}
+
+async function persistProjectSnapshot(context: ProjectContextSnapshot) {
+  const stable = {
+    version: SNAPSHOT_VERSION,
+    projectId: context.projectId,
+    structure: context.structure,
+    stack: context.stack,
+    manifest: context.manifest,
+    database: context.database,
+    git: context.git,
+    rules: context.rules
+  };
+  const fingerprint = snapshotFingerprint(stable);
+  const content = JSON.stringify({ version: SNAPSHOT_VERSION, fingerprint, inspectedAt: context.inspectedAt, context: stable });
+  if (Buffer.byteLength(content, "utf8") > SNAPSHOT_MAX_BYTES) return;
+  const existing = await prisma.projectMemory.findUnique({
+    where: { projectId_key: { projectId: context.projectId, key: SNAPSHOT_MEMORY_KEY } },
+    select: { content: true }
+  });
+  try {
+    const previous = existing?.content ? JSON.parse(existing.content) : null;
+    if (previous?.fingerprint === fingerprint && previous?.version === SNAPSHOT_VERSION) return;
+  } catch {}
+  await prisma.projectMemory.upsert({
+    where: { projectId_key: { projectId: context.projectId, key: SNAPSHOT_MEMORY_KEY } },
+    create: { projectId: context.projectId, kind: "project-context", key: SNAPSHOT_MEMORY_KEY, content },
+    update: { kind: "project-context", content }
+  });
 }
 
 export async function inspectProjectContext(projectId: string): Promise<ProjectContextSnapshot> {
