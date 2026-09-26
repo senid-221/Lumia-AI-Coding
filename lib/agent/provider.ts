@@ -4,6 +4,7 @@ import { registerExecution, unregisterExecution } from "./execution-control";
 import { prisma } from "@/lib/prisma";
 import { hasProviderKey, modelIdForLabel } from "./model-router";
 import { LUMIA_CODING_INSTRUCTIONS } from "./policy";
+import { LUMIA_CODING_INSTRUCTIONS } from "./policy";
 export type ModelProvider = "anthropic"|"openai"|"google"|"xai"|"groq";
 
 export type AgentEvent =
