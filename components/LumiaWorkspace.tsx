@@ -142,31 +142,79 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
 
   const popup=(title:string,items:string[],onPick:(v:string)=>void)=><div className="menu-popover"><div className="menu-title">{title}</div>{items.map(item=><button className="menu-item" key={item} onClick={()=>{onPick(item);setMenu("none")}}>{item}</button>)}</div>;
 
-  return <main className="workspace" ref={rootRef}>
-    <header className="topbar">
-      <div className="top-left"><button className="icon-btn" onClick={()=>setMenu(menu==="main"?"none":"main")} aria-label="Open menu"><Menu size={18}/></button><button className="selector" onClick={()=>setMenu(menu==="lumia"?"none":"lumia")}><Bot size={15}/><span>lumia</span><ChevronDown size={13}/></button><span className="slash">/</span><button className="selector" onClick={()=>setMenu(menu==="agent"?"none":"agent")}><span>{agent}</span><ChevronDown size={13}/></button></div>
-      <div className="top-right">{accountControl}<button className="dots" onClick={()=>setMenu(menu==="main"?"none":"main")}>•••</button></div>{menu==="main"&&<div className="menu-popover main-menu"><div className="menu-title">Lumia</div>{mainMenu.map(item=><button className="menu-item menu-action" key={item.id} onClick={()=>handleMainAction(item.id)}>{item.icon}<span>{item.label}</span>{item.id==="deploy"&&<span className="menu-shortcut">↗</span>}</button>)}</div>}{menu==="lumia"&&popup("Workspace",["lumia"],()=>{})}{menu==="agent"&&popup("Agent",agents,v=>setAgent(v))}
-    </header>
-    <section className="chat-shell">
-      {messages.length===0 && <div className="empty-state"><div className="empty-mark"><Bot size={28}/></div><h1>Lumia AI Agent</h1><p>Multi-agent AI coding platform powered by <span>BeeLimited</span> and <span>RwaCodex</span>.</p></div>}
-      {messages.length>0 && <section className="chat-feed">{messages.map(m=><div className={"message-row "+m.role} key={m.id}>
-        {m.role==="assistant" && <div className="message-avatar"><Bot size={17}/></div>}
-        <div className="message-stack"><div className="message-role">{m.role==="user"?"You":"Lumia"}</div><div className="message-content">{m.content || (busy && <span className="thinking-dots"><i></i><i></i><i></i></span>)}</div>{m.role==="assistant" && m.content && <div className="message-tools"><button title="Copy"><Copy size={14}/></button><button title="Like"><ThumbsUp size={14}/></button><button title="Dislike"><ThumbsDown size={14}/></button><button title="Retry"><RotateCcw size={14}/></button></div>}</div>
-      </div>)}</section>}
-      {status && <div className="agent-status"><span className="status-dot"></span><span>{status}</span><span className="status-pulse">•••</span></div>}
-      {error && <div className="error-banner">{error}</div>}
-      <section className="composer">
-        <button className="composer-icon" aria-label="Attach file"><Paperclip size={18}/></button><textarea value={task} onChange={e=>setTask(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Message Lumia AI Agent..." rows={1}/><button className="composer-icon" aria-label="Voice input"><Mic size={18}/></button><button className="send-btn" onClick={send} disabled={busy||!task.trim()||!model} aria-label="Send"><Send size={17}/></button>
+  return (
+    <main className="workspace" ref={rootRef}>
+      <header className="topbar">
+        <div className="top-left">
+          <button className="icon-btn" onClick={()=>setMenu(menu==="main"?"none":"main")} aria-label="Open menu"><Menu size={18}/></button>
+          <button className="selector" onClick={()=>setMenu(menu==="lumia"?"none":"lumia")}><Bot size={15}/><span>lumia</span><ChevronDown size={13}/></button>
+          <span className="slash">/</span>
+          <button className="selector" onClick={()=>setMenu(menu==="agent"?"none":"agent")}><span>{agent}</span><ChevronDown size={13}/></button>
+        </div>
+        <div className="top-right">{accountControl}<button className="dots" onClick={()=>setMenu(menu==="main"?"none":"main")}>•••</button></div>
+        {menu==="main"&&<div className="menu-popover main-menu"><div className="menu-title">Lumia</div>{mainMenu.map(item=><button className="menu-item menu-action" key={item.id} onClick={()=>handleMainAction(item.id)}>{item.icon}<span>{item.label}</span>{item.id==="deploy"&&<span className="menu-shortcut">↗</span>}</button>)}</div>}
+        {menu==="lumia"&&popup("Workspace",["lumia"],()=>{})}
+        {menu==="agent"&&popup("Agent",agents,v=>setAgent(v))}
+      </header>
+
+      <section className="chat-shell">
+        {messages.length===0 && (
+          <div className="empty-state">
+            <div className="empty-mark"><Bot size={28}/></div>
+            <h1>Lumia AI Agent</h1>
+            <p>Multi-agent AI coding platform powered by <span>BeeLimited</span> and <span>RwaCodex</span>.</p>
+          </div>
+        )}
+
+        {messages.length>0 && (
+          <section className="chat-feed">
+            {messages.map(m=>(
+              <div className={"message-row "+m.role} key={m.id}>
+                {m.role==="assistant" && <div className="message-avatar"><Bot size={17}/></div>}
+                <div className="message-stack">
+                  <div className="message-role">{m.role==="user"?"You":"Lumia"}</div>
+                  <div className="message-content">
+                    {m.content || (busy && <span className="thinking-dots"><i></i><i></i><i></i></span>)}
+                  </div>
+                  {m.role==="assistant" && m.content && (
+                    <div className="message-tools">
+                      <button title="Copy"><Copy size={14}/></button>
+                      <button title="Like"><ThumbsUp size={14}/></button>
+                      <button title="Dislike"><ThumbsDown size={14}/></button>
+                      <button title="Retry"><RotateCcw size={14}/></button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {status && <div className="agent-status"><span className="status-dot"></span><span>{status}</span><span className="status-pulse">•••</span></div>}
+        {error && <div className="error-banner">{error}</div>}
+
+        <section className="composer">
+          <button className="composer-icon" aria-label="Attach file"><Paperclip size={18}/></button>
+          <textarea value={task} onChange={e=>setTask(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Message Lumia AI Agent..." rows={1}/>
+          <button className="composer-icon" aria-label="Voice input"><Mic size={18}/></button>
+          <button className="send-btn" onClick={send} disabled={busy||!task.trim()||!model} aria-label="Send"><Send size={17}/></button>
+        </section>
+
+        {menu==="provider"&&<div className="menu-popover"><div className="menu-title">Select provider</div>{providerIds.map(id=><button className="menu-item" key={id} onClick={()=>{setProvider(id);setModel("");setModelSearch("");setMenu("none");}}>{providerNames[id]}{liveProviders.find(p=>p.id===id)?.configured===false?" · API key missing":""}</button>)}</div>}
+
+        {menu==="model"&&<div className="menu-popover model-popover" style={{maxHeight:360,overflowY:"auto",minWidth:260}}>
+          <div className="menu-title">{providerNames[provider]} models <button className="menu-item" style={{display:"inline-block",float:"right",padding:"2px 6px"}} onClick={()=>setModelRefresh(v=>v+1)}>↻</button></div>
+          <input aria-label="Search models" placeholder="Search models..." value={modelSearch} onChange={e=>setModelSearch(e.target.value)} style={{width:"100%",padding:8,marginBottom:8}}/>
+          {modelsLoading?<div className="menu-note">Loading models...</div>:providerEntry?.error?<div className="menu-note">{providerEntry.error}</div>:providerEntry?.configured===false?<div className="menu-note">{providerNames[provider]} API key is not configured on the server.</div>:models.length===0?<div className="menu-note">Provider is configured but returned no models. Check the API key permissions and provider endpoint.</div>:models.filter(m=>(m.label+" "+m.id).toLowerCase().includes(modelSearch.toLowerCase())).map(m=><button className="menu-item" key={m.id} onClick={()=>{setModel(m.id);setMenu("none");setModelSearch("");}}>{m.label}{m.label!==m.id?<small style={{display:"block",opacity:.6}}>{m.id}</small>:null}</button>)}
+        </div>}
+
+        {menu==="settings"&&<div className="menu-popover settings-popover">
+          <div className="menu-title">Lumia settings</div>
+          <button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button>
+          <div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {providerNames[provider]} · Model: {selectedModel?.label || "None"}</div>
+        </div>}
       </section>
-      {menu==="provider"&&<div className="menu-popover"><div className="menu-title">Select provider</div>{providerIds.map(id=><button className="menu-item" key={id} onClick={()=>{setProvider(id);setModel("");setModelSearch("");setMenu("none");}}>{providerNames[id]}{liveProviders.find(p=>p.id===id)?.configured===false?" · API key missing":""}</button>)}</div>}
-      {menu==="model"&&<div className="menu-popover model-popover" style={{maxHeight:360,overflowY:"auto",minWidth:260}}>
-        <div className="menu-title">{providerNames[provider]} models <button className="menu-item" style={{display:"inline-block",float:"right",padding:"2px 6px"}} onClick={()=>setModelRefresh(v=>v+1)}>↻</button></div>
-        <input aria-label="Search models" placeholder="Search models..." value={modelSearch} onChange={e=>setModelSearch(e.target.value)} style={{width:"100%",padding:8,marginBottom:8}}/>
-        {modelsLoading?<div className="menu-note">Loading models...</div>:providerEntry?.error?<div className="menu-note">{providerEntry.error}</div>:providerEntry?.configured===false?<div className="menu-note">{providerNames[provider]} API key is not configured on the server.</div>:models.length===0?<div className="menu-note">Provider is configured but returned no models. Check the API key permissions and provider endpoint.</div>:models.filter(m=>(m.label+" "+m.id).toLowerCase().includes(modelSearch.toLowerCase())).map(m=><button className="menu-item" key={m.id} onClick={()=>{setModel(m.id);setMenu("none");setModelSearch("");}}>{m.label}{m.label!==m.id?<small style={{display:"block",opacity:.6}}>{m.id}</small>:null}</button>)}
-      </div>}
-      {menu==="settings"&&<div className="menu-popover settings-popover"><div className="menu-title">Lumia settings</div><button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button><div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {providerNames[provider]} · Model: {selectedModel?.label || "None"}</div></div>}
-      </section>
-    </section>
-    {notice && <div className="toast-notice">{notice}</div>}
-  </main>;
-}
+
+      {notice && <div className="toast-notice">{notice}</div>}
+    </main>
+  );}
