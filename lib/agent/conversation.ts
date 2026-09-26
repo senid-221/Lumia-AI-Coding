@@ -62,6 +62,23 @@ export async function runConversationalProvider(
     return { text: text || "Hello! How can I help you today?" };
   }
 
+  if (provider === "openai") {
+    const response = await client(provider).responses.create({
+      model,
+      instructions: SYSTEM_PROMPT,
+      input: [
+        ...history.slice(-12).map(message => ({
+          role: message.role,
+          content: [{ type: "input_text" as const, text: message.content }]
+        })),
+        { role: "user" as const, content: [{ type: "input_text" as const, text: input }] }
+      ]
+    });
+    return {
+      text: String(response.output_text || "Hello! How can I help you today?")
+    };
+  }
+
   const response = await client(provider).chat.completions.create({
     model,
     messages: [
