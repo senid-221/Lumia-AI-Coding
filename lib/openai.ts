@@ -6,10 +6,10 @@ export function getOpenAIClient(){
   return new OpenAI({apiKey,maxRetries:2,timeout:120000});
 }
 
-export const openai={
-  responses:{
-    create: (...args:any[]) => getOpenAIClient().responses.create(...args)
+export const LUMIA_MODEL = process.env.OPENAI_MODEL || "gpt-5.5";
+
+export const openai = {
+  get responses(){
+    return getOpenAIClient().responses;
   }
 };
-
-export const LUMIA_MODEL = process.env.OPENAI_MODEL || "gpt-5.5";
