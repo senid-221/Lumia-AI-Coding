@@ -95,11 +95,12 @@ export async function runAutonomousCodingTask(
     );
 
     const final = [
-      "Planner: " + plan,
-      "Coder: " + implementation,
-      "Reviewer: " + review,
-      debug ? "Debugger: " + debug : "",
-      "Verifier: " + verification
+      "Step 1: Understand and plan\n" + plan,
+      "Step 2: Work on the project\n" + implementation,
+      "Step 3: Review\n" + review,
+      debug ? "Step 4: Repair\n" + debug : "",
+      "Step " + (debug ? "5" : "4") + ": Verify\n" + verification,
+      "Result: The task is reported from the actual work and verification above. Any remaining limitation is stated by the verifier."
     ].filter(Boolean).join("\n\n");
 
     await prisma.agentExecution.update({
