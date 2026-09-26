@@ -151,7 +151,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
           <span className="slash">/</span>
           <button className="selector" onClick={()=>setMenu(menu==="agent"?"none":"agent")}><span>{agent}</span><ChevronDown size={13}/></button>
         </div>
-        <div className="top-right">{accountControl}<button className="dots" onClick={()=>setMenu(menu==="main"?"none":"main")}>•••</button></div>
+        <div className="top-right">{accountControl}</div>
         {menu==="main"&&<div className="menu-popover main-menu"><div className="menu-title">Lumia</div>{mainMenu.map(item=><button className="menu-item menu-action" key={item.id} onClick={()=>handleMainAction(item.id)}>{item.icon}<span>{item.label}</span>{item.id==="deploy"&&<span className="menu-shortcut">↗</span>}</button>)}</div>}
         {menu==="lumia"&&popup("Workspace",["lumia"],()=>{})}
         {menu==="agent"&&popup("Agent",agents,v=>setAgent(v))}
