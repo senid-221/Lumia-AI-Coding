@@ -55,10 +55,11 @@ export async function rememberExplicitUserContext(
 ){
   const memories:Array<{kind:string;key:string;content:string;confidence:number}> = [];
   const value=input.trim();
+  if(!value || value.length>4000) return memories;
 
-  const preference=value.match(/(?:i|I)\s+(?:prefer|like|love|want)\s+(.+)/);
+  const preference=value.match(/(?:i|I)\s+(?:prefer|like|love|want)\s+(.+)|(?:nkunda|ndashaka|mpitamo)\s+(.+)/i);
   if(preference){
-    const content=preference[1].replace(/[.!?]+$/,"").trim();
+    const content=(preference[1] || preference[2]).replace(/[.!?]+$/,"").trim();
     if(content) memories.push({kind:"preference",key:"preference:"+content.toLowerCase().slice(0,120),content,confidence:.9});
   }
 
