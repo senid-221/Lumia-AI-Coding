@@ -5,7 +5,7 @@ import type { ModelProvider } from "./model-router";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
 import { loadProjectRules } from "./rule-loader";
-import { inspectProjectContext, formatProjectContext } from "./project-context";
+import { getProjectContextSnapshot, formatProjectContext } from "./project-context";
 
 type ContextMessage = { role: "user" | "assistant"; content: string };
 export type ProviderId = ModelProvider;
@@ -18,7 +18,7 @@ export async function runAutonomousCodingTask(
   const specialistTurns = Math.max(1, Math.min(Number(process.env.LUMIA_SPECIALIST_TURNS || 4), 8));
   const projectContext = await getProjectContext(projectId, conversationId);
   onEvent({ type: "project_context_start" });
-  const inspectedContext = await inspectProjectContext(projectId);
+  const inspectedContext = await getProjectContextSnapshot(projectId);
   onEvent({ type: "project_context_complete", context: inspectedContext });
   if (projectContext.project?.userId) await rememberExplicitUserContext(projectContext.project.userId, prompt);
   const effectiveHistory = projectContext.history.length ? projectContext.history : history;
