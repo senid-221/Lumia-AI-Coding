@@ -135,6 +135,7 @@ async function runOpenAIResponses(
           }
 
           assertToolPermission(role, name);
+          assertToolPermission(role, name);
           output=String(await executeTool(name,args,projectId || ""));
           onEvent({type:"tool_result",tool:name,detail:output.slice(0,4000)});
         } catch(error) {
@@ -207,6 +208,7 @@ async function runChatProvider(
         onEvent({type:"tool_start",tool:name,detail:"Executing project tool."});
         try {
           const args=JSON.parse(call.function?.arguments || "{}");
+          assertToolPermission(role, name);
           const result=await executeTool(name,args,projectId || "");
           const output=String(result);
           onEvent({type:"tool_result",tool:name,detail:output.slice(0,4000)});
@@ -286,6 +288,7 @@ async function runAnthropic(
         toolCount++;
         onEvent({type:"tool_start",tool:use.name,detail:"Executing project tool."});
         try {
+          assertToolPermission(role, use.name);
           const result=await executeTool(use.name,use.input || {},projectId || "");
           const output=String(result);
           onEvent({type:"tool_result",tool:use.name,detail:output.slice(0,4000)});
