@@ -14,6 +14,7 @@ function normalizeProvider(value:unknown):ProviderId {
   if(v==="anthropic"||v==="claude") return "anthropic";
   if(v==="google"||v==="gemini") return "google";
   if(v==="xai"||v==="grok") return "xai";
+  if(v==="groq") return "groq";
   return "openai";
 }
 
@@ -29,7 +30,7 @@ export async function POST(req:Request){
   const requestedModel=String(body.model||"").trim();
   if(!task) return NextResponse.json({error:"Task is required"},{status:400});
 
-  if(agent==="hacking-lab" && !process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY && !process.env.XAI_API_KEY)
+  if(agent==="hacking-lab" && !process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY && !process.env.XAI_API_KEY && !process.env.GROQ_API_KEY)
     return NextResponse.json({error:"Hacking Lab requires a configured AI provider."},{status:500});
   if(provider==="openai" && !process.env.OPENAI_API_KEY)
     return NextResponse.json({error:"OPENAI_API_KEY is not configured on the server."},{status:500});
@@ -39,6 +40,8 @@ export async function POST(req:Request){
     return NextResponse.json({error:"GEMINI_API_KEY or GOOGLE_API_KEY is not configured on the server."},{status:500});
   if(provider==="xai" && !process.env.XAI_API_KEY)
     return NextResponse.json({error:"XAI_API_KEY is not configured on the server."},{status:500});
+  if(provider==="groq" && !process.env.GROQ_API_KEY)
+    return NextResponse.json({error:"GROQ_API_KEY is not configured on the server."},{status:500});
 
   const project=await prisma.project.upsert({
     where:{userId_slug:{userId:session.user.id,slug:"ai-agent"}},
