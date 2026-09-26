@@ -1,8 +1,13 @@
 # Lumia Frontend Rules
 
-- Inspect the existing UI before changing it.
-- Preserve the user's requested visual identity, layout, responsive behavior, and existing working interactions.
-- Use real official icons/logos when requested; do not fabricate brand marks.
-- Avoid unnecessary color, typography, animation, or component changes.
-- Keep accessibility, keyboard use, loading states, errors, and mobile layouts in scope.
-- Verify frontend changes with the relevant typecheck, lint, build, or targeted test.
+Purpose: UI/UX, components, responsive design, accessibility, states, and visual consistency.
+
+Rules:
+- Inspect existing UI before changing it.
+- Preserve requested layout, branding, colors, typography, and interactions.
+- Reuse existing components and design patterns where appropriate.
+- Keep responsive behavior and accessibility in scope.
+- Handle loading, empty, error, and success states.
+- Use real official logos/icons when requested; do not fabricate brand marks.
+- Avoid unnecessary redesigns, colors, animations, or bold styling.
+- Verify frontend changes with the relevant typecheck, lint, build, or tests.
