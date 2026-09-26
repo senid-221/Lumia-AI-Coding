@@ -51,6 +51,7 @@ model Project {
   user User @relation(fields:[userId], references:[id], onDelete:Cascade)
   conversations Conversation[]
   executions AgentExecution[]
+  memories ProjectMemory[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([userId, slug])
@@ -88,4 +89,16 @@ model AgentExecution {
   finishedAt DateTime?
   project Project? @relation(fields:[projectId], references:[id], onDelete:SetNull)
   conversation Conversation? @relation(fields:[conversationId], references:[id], onDelete:SetNull)
+}
+model ProjectMemory {
+  id String @id @default(cuid())
+  projectId String
+  kind String
+  key String
+  content String @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project Project @relation(fields:[projectId], references:[id], onDelete:Cascade)
+  @@unique([projectId, key])
+  @@index([projectId, kind])
 }
