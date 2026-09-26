@@ -5,7 +5,7 @@ import type { ModelProvider } from "./model-router";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
 import { loadProjectRules } from "./rule-loader";
-import { inspectProjectContext, formatProjectContext } from "./project-context";
+import { getProjectContextSnapshot, formatProjectContext } from "./project-context";
 
 type ContextMessage = { role: "user" | "assistant"; content: string };
 export type ProviderId = ModelProvider;
@@ -18,7 +18,7 @@ export async function runAutonomousCodingTask(
   const specialistTurns = Math.max(1, Math.min(Number(process.env.LUMIA_SPECIALIST_TURNS || 4), 8));
   const projectContext = await getProjectContext(projectId, conversationId);
   onEvent({ type: "project_context_start" });
-  const inspectedContext = await inspectProjectContext(projectId);
+  const inspectedContext = await getProjectContextSnapshot(projectId);
   onEvent({ type: "project_context_complete", context: inspectedContext });
   if (projectContext.project?.userId) await rememberExplicitUserContext(projectContext.project.userId, prompt);
   const effectiveHistory = projectContext.history.length ? projectContext.history : history;
@@ -81,7 +81,7 @@ export async function runAutonomousCodingTask(
 
     const maxRepairPasses = Math.max(0, Math.min(Number(process.env.LUMIA_REPAIR_PASSES || 2), 3));
     let verification = "";
-    let debug = "";
+    let debugResult = "";
     let repairPasses = 0;
     let verificationPassed = false;
 
@@ -89,7 +89,7 @@ export async function runAutonomousCodingTask(
       verification = await roleRun(
         "verifier",
         prompt + "\nReview:\n" + review +
-        (debug ? "\nDebugger:\n" + debug : "") +
+        (debugResult ? "\nDebugger:\n" + debugResult : "") +
         (repairPasses ? "\nRepair pass " + repairPasses + " was applied. Verify the repaired project again." : "") +
         "\nVerify the current project using available tools. Run at least one objective verification command when the project supports it. Report the command and its actual result. End with exactly one status line: VERIFICATION_STATUS: PASS or VERIFICATION_STATUS: FAIL."
       );
@@ -100,7 +100,7 @@ export async function runAutonomousCodingTask(
       if (repairPasses >= maxRepairPasses) break;
 
       repairPasses++;
-      debug = await roleRun(
+      debugResult = await roleRun(
         "debugger",
         prompt + "\nVerifier evidence:\n" + verification +
         "\nRepair pass " + repairPasses +
@@ -113,8 +113,8 @@ export async function runAutonomousCodingTask(
       "Step 1: Understand and plan\n" + plan,
       "Step 2: Work on the project\n" + implementation,
       "Step 3: Review\n" + review,
-      debug ? "Step 4: Repair\n" + debug : "",
-      "Step " + (debug ? "5" : "4") + ": Verify\n" + verification,
+      debugResult ? "Step 4: Repair\n" + debugResult : "",
+      "Step " + (debugResult ? "5" : "4") + ": Verify\n" + verification,
       verificationPassed ? "Result: Verification passed based on explicit verifier evidence." : "Result: Verification did not pass. Lumia will not report this task as completed."
     ].filter(Boolean).join("\n\n");
 

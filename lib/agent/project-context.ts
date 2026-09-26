@@ -85,6 +85,62 @@ async function persistProjectSnapshot(context: ProjectContextSnapshot) {
   });
 }
 
+export async function loadPersistedProjectSnapshot(projectId: string): Promise<ProjectContextSnapshot | null> {
+  const row = await prisma.projectMemory.findUnique({
+    where: { projectId_key: { projectId, key: SNAPSHOT_MEMORY_KEY } },
+    select: { content: true }
+  });
+  if (!row?.content) return null;
+
+  try {
+    const persisted = JSON.parse(row.content);
+    if (
+      persisted?.version !== SNAPSHOT_VERSION ||
+      persisted?.context?.projectId !== projectId ||
+      typeof persisted?.fingerprint !== "string"
+    ) {
+      return null;
+    }
+
+    const context = persisted.context as ProjectContextSnapshot;
+    if (
+      !context.inspectedAt ||
+      !context.structure ||
+      !context.stack ||
+      !context.manifest ||
+      !context.database ||
+      !context.git ||
+      !context.rules
+    ) {
+      return null;
+    }
+
+    // A persisted snapshot is reusable only while the workspace's Git state
+    // still matches the state captured when the snapshot was created.
+    if (context.git.available) {
+      try {
+        const current = await runProjectCommand(projectId, "git", ["status", "--short", "--branch"]);
+        if (current.code !== 0) return null;
+        const currentStatus = (current.stdout || current.stderr).trim().slice(0, 6000) || "Clean working tree.";
+        if (currentStatus !== context.git.status) return null;
+      } catch {
+        return null;
+      }
+    }
+
+    return context;
+  } catch {
+    return null;
+  }
+}
+
+export async function getProjectContextSnapshot(projectId: string): Promise<ProjectContextSnapshot> {
+  const persisted = await loadPersistedProjectSnapshot(projectId);
+  if (persisted) return persisted;
+
+  return inspectProjectContext(projectId);
+}
+
 export async function inspectProjectContext(projectId: string): Promise<ProjectContextSnapshot> {
   const rawFiles = await listProjectFiles(projectId, ".");
   const files = rawFiles.filter(f => !f.endsWith("/")).slice(0, MAX_FILES);
