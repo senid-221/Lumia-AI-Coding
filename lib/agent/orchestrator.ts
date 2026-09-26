@@ -53,14 +53,27 @@ export async function runAutonomousCodingTask(
   };
 
   try {
-    const plan = await roleRun("planner", prompt);
-    const implementation = await roleRun("coder", prompt + "\nPlanner:\n" + plan);
-    const review = await roleRun("reviewer", prompt + "\nImplementation:\n" + implementation);
+    const codingLike = /\\b(code|coding|build|implement|fix|debug|repair|refactor|edit|change|update|modify|create|add|remove|test|lint|typecheck|deploy|database|schema|api|component|ui|frontend|backend)\\b/i.test(prompt);
+    const researchLike = /\\b(research|latest|current|documentation|docs|official|compare|verify|source|api reference)\\b/i.test(prompt);
+    const securityLike = /\\b(security|auth|authentication|authorization|permission|secret|token|vulnerability|secure)\\b/i.test(prompt);
+    const uiLike = /\\b(ui|ux|frontend|component|responsive|design|layout|css|tailwind)\\b/i.test(prompt);
+    const databaseLike = /\\b(database|db|schema|migration|prisma|sql|query|table|relation)\\b/i.test(prompt);
 
-    let debug = "";
-    if (/\b(fail|error|bug|regression|missing|incorrect|broken)\b/i.test(review)) {
-      debug = await roleRun("debugger", prompt + "\nReview findings:\n" + review + "\nRepair the project.");
+    const plan = await roleRun("planner", prompt);
+    if (researchLike) {
+      await roleRun("researcher", prompt + "\\nPlanner:\\n" + plan + "\\nResearch the relevant current documentation or sources and return evidence.");
     }
+    if (securityLike) {
+      await roleRun("security-reviewer", prompt + "\\nPlanner:\\n" + plan + "\\nReview the security implications and required safeguards.");
+    }
+    if (uiLike) {
+      await roleRun("ui-specialist", prompt + "\\nPlanner:\\n" + plan + "\\nInspect and address the UI/UX requirements.");
+    }
+    if (databaseLike) {
+      await roleRun("database-specialist", prompt + "\\nPlanner:\\n" + plan + "\\nInspect the database requirements, schema, migrations, and data safety.");
+    }
+    const implementation = await roleRun("coder", prompt + "\\nPlanner:\\n" + plan);
+    const review = await roleRun("reviewer", prompt + "\\nImplementation:\\n" + implementation);
 
     const maxRepairPasses = Math.max(0, Math.min(Number(process.env.LUMIA_REPAIR_PASSES || 2), 3));
     let verification = "";
