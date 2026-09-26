@@ -37,9 +37,16 @@ function openAICompatibleClient(provider: "openai"|"google"|"xai"|"groq") {
 }
 
 function normalizeChatTools(tools:any[]) {
-  return tools.map((t:any) => t.type === "function" ? t : ({
+  return tools.map((t:any) => ({
     type: "function",
-    function: { name: t.name, description: t.description, parameters: t.parameters }
+    function: {
+      name: t.function?.name || t.name,
+      description: t.function?.description || t.description,
+      parameters: t.function?.parameters || t.parameters || { type: "object", properties: {} },
+      ...(typeof (t.function?.strict ?? t.strict) === "boolean"
+        ? { strict: Boolean(t.function?.strict ?? t.strict) }
+        : {})
+    }
   }));
 }
 
