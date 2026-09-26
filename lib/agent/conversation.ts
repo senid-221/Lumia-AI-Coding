@@ -37,7 +37,8 @@ export async function runConversationalProvider(
   onEvent?: (event: { type: string; text?: string; detail?: string }) => void
 ): Promise<ConversationResult> {
   const model = modelIdForLabel(provider, requestedModel); 
-  const detectedLanguage = detectLanguage(input);\n  const systemPrompt = (memoryContext ? SYSTEM_PROMPT + "\n\nRelevant long-term memory:\n" + memoryContext : SYSTEM_PROMPT) + "\n\nLanguage behavior:\n" + languageInstruction(detectedLanguage);
+  const detectedLanguage = detectLanguage(input);
+  const systemPrompt = (memoryContext ? SYSTEM_PROMPT + "\n\nRelevant long-term memory:\n" + memoryContext : SYSTEM_PROMPT) + "\n\nLanguage behavior:\n" + languageInstruction(detectedLanguage);
 
   if (provider === "anthropic") {
     const key = process.env.ANTHROPIC_API_KEY;
