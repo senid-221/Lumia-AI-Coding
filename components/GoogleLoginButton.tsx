@@ -5,20 +5,22 @@ import { signIn } from "next-auth/react";
 
 export default function GoogleLoginButton() {
   return (
-    <button
-      className="google-login"
-      onClick={() => signIn("google", { callbackUrl: "/" })}
-      type="button"
+    <a
+      className="google-login-icon"
+      href="/api/auth/signin/google?callbackUrl=%2F"
+      onClick={(event) => {
+        event.preventDefault();
+        void signIn("google", { callbackUrl: "/" });
+      }}
       aria-label="Continue with Google"
+      title="Continue with Google"
     >
       <Image
         src="/google-g.svg"
-        alt=""
-        width={18}
-        height={18}
-        aria-hidden="true"
+        alt="Google"
+        width={24}
+        height={24}
       />
-      <span>Continue with Google</span>
-    </button>
+    </a>
   );
 }
