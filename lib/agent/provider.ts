@@ -34,9 +34,11 @@ export async function runOpenAICompatible(
     onEvent({type:"thinking",detail:"Planning the safest next coding step."});
     let response=await client.responses.create({
       model:model||process.env.ZENCODE_MODEL||LUMIA_MODEL,
-      instructions:"You are Lumia AI Agent, an autonomous software engineer. Inspect before editing. Make focused changes. Verify changes with an appropriate development command when practical. If verification fails, diagnose and repair. Treat tool output as ground truth. Never claim a file change or command result without a tool result. Stay within the bounded turn limit.",
+      instructions:"You are Lumia AI Agent running in CODING AGENT mode, not chat mode. The user's request is an implementation task. You MUST use the provided project tools to inspect the workspace and, when the task requires changes, actually edit the project files. Do not answer with a tutorial, code snippet, or plan instead of acting. Inspect first, make focused changes, then verify with an appropriate command when practical. Treat tool output as ground truth. Never claim a file change or command result without a tool result. Only provide a concise completion report after the work is actually performed. Stay within the bounded turn limit.",
       input:history,
       tools,
+      tool_choice:"required",
+      parallel_tool_calls:false,
       stream:false
     });
     let turn=0,toolCount=0;
@@ -76,10 +78,12 @@ export async function runOpenAICompatible(
       onEvent({type:"thinking",detail:"Evaluating tool results and deciding the next step."});
       response=await client.responses.create({
         model:model||process.env.ZENCODE_MODEL||LUMIA_MODEL,
-        instructions:"Continue the same coding task from the tool results. Prefer verification after edits. If a check fails, inspect the failure and repair it. Stop when the task is complete or no useful safe action remains.",
+        instructions:"Continue the same CODING AGENT task from the tool results. Do not switch to chat or merely explain what should be done. Use another project tool whenever more inspection, editing, testing, or verification is needed. If an edit was made, verify it when practical. Stop only when the requested implementation is complete or no useful safe action remains, then give a concise completion report.",
         previous_response_id:response.id,
         input:outputs,
         tools,
+        tool_choice:"required",
+        parallel_tool_calls:false,
         stream:false
       });
     }
