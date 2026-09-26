@@ -81,7 +81,7 @@ export async function runAutonomousCodingTask(
     const message=error instanceof Error?error.message:"Specialist pipeline failed";
     await prisma.agentExecution.update({
       where:{id:execution.id},
-      data:{status:"FAILED",error:message,toolCount,finishedAt:new Date()}
+      data:{status:message==="Execution cancelled."?"CANCELLED":"FAILED",error:message,toolCount,finishedAt:new Date()}
     });
     throw error;
   }
