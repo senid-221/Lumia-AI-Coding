@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { executeTool } from "./tools";
 import { registerExecution, unregisterExecution } from "./execution-control";
 import { prisma } from "@/lib/prisma";
-import { hasProviderKey, resolveZencoderMode, type ModelProvider } from "./model-router";
+export type ModelProvider = "anthropic"|"openai"|"google"|"xai";
 
 export type AgentEvent =
   | { type:"thinking"; detail:string }
@@ -196,26 +196,16 @@ export async function runModelProvider(
   executionId?:string,
   routingRole?:string
 ):Promise<AgentRunResult> {
-  let selectedProvider=provider;
-  let selectedModel=model || "";
-
-  if(provider==="zencode") {
-    const routed=resolveZencoderMode(model || "auto", routingRole);
-    selectedProvider=routed.provider;
-    selectedModel=routed.model;
-    onEvent({type:"thinking",detail:"Zencoder "+routed.mode+" routed this task to "+routed.label+" ("+routed.provider+")."});
-  }
+  const selectedProvider=provider;
+  const selectedModel=model || process.env.OPENAI_MODEL || "gpt-5.5";
 
   if(selectedProvider==="anthropic")
     return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId);
-  if(selectedProvider==="zencode")
-    throw new Error("Zencoder routing did not resolve to a provider.");
-
-  if(selectedProvider==="openai" && !hasProviderKey("openai"))
+  if(selectedProvider==="openai" && !process.env.OPENAI_API_KEY)
     throw new Error("OPENAI_API_KEY is not configured on the server.");
-  if(selectedProvider==="google" && !hasProviderKey("google"))
+  if(selectedProvider==="google" && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY)
     throw new Error("GEMINI_API_KEY or GOOGLE_API_KEY is not configured on the server.");
-  if(selectedProvider==="xai" && !hasProviderKey("xai"))
+  if(selectedProvider==="xai" && !process.env.XAI_API_KEY)
     throw new Error("XAI_API_KEY is not configured on the server.");
 
   return runChatProvider(selectedProvider,selectedModel,input,history,tools,onEvent,maxTurns,executionId);
