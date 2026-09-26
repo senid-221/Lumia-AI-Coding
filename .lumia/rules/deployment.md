@@ -1,8 +1,12 @@
 # Lumia Deployment Rules
 
-- Inspect deployment configuration before modifying it.
-- Preserve required environment variables and deployment contracts.
+Purpose: Build, environment, database, runtime, hosting, and deployment verification.
+
+Rules:
+- Inspect deployment configuration before changing it.
+- Preserve required environment variables and runtime contracts.
 - Never commit secrets.
 - Verify build and migration requirements before deployment.
-- Distinguish local verification from a real deployed-state verification.
-- Never claim deployment succeeded without evidence from the deployment system or a verified live endpoint.
+- Distinguish code push from actual deployment success.
+- Verify runtime/health/deployment status when available.
+- Never claim deployment succeeded without deployment-system or live-runtime evidence.
