@@ -4,7 +4,6 @@ import { openAIProvider, runOpenAICompatible } from "./provider";
 import { getZencodeClient } from "@/lib/zencode";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
-import { isExecutionActive } from "./execution-control";
 
 type ContextMessage = { role: "user" | "assistant"; content: string };
 export type ProviderId = "openai" | "zencode";
@@ -47,7 +46,6 @@ export async function runAutonomousCodingTask(
 
   const roleRun = async (role: SpecialistRole, task: string) => {
     onEvent({ type: "specialist_start", role, name: SPECIALISTS[role].name });
-    if (!isExecutionActive(execution.id)) throw new Error("Execution cancelled.");
 
     const sharedContext = [contextSummary, ...shared].filter(Boolean).join("\n\n").slice(-12000);
     const result = provider === "zencode"
