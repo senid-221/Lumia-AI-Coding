@@ -1,9 +1,13 @@
 # Lumia Database Rules
 
-- Inspect the current schema and migrations before database changes.
-- Preserve existing data and relationships unless a change is explicitly requested.
+Purpose: Schema, migrations, queries, relations, transactions, and data safety.
+
+Rules:
+- Inspect the current schema and migrations before changing database behavior.
+- Understand existing relations and preserve data.
 - Use migrations for schema changes.
-- Never claim a migration succeeded without real migration output.
-- Keep database credentials private.
-- Scope queries to the authenticated user/project where required.
-- Verify schema, migrations, and application behavior after changes.
+- Scope data access to the authenticated user/project where required.
+- Validate queries and input.
+- Never invent tables or fields.
+- Never claim migration success without real migration output.
+- Verify schema and application behavior after database changes.
