@@ -137,10 +137,6 @@ export async function runConversationalProvider(
     text: text.trim() || "I could not produce a response."
   };
 
-
-  return {
-    text: String(response.choices?.[0]?.message?.content || "Hello! How can I help you today?")
-  };
 }
 
 export function isSimpleConversation(input: string) {
