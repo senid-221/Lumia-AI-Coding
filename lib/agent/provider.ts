@@ -52,6 +52,88 @@ function normalizeChatTools(tools:any[]): ChatCompletionTool[] {
   }));
 }
 
+function normalizeResponseTools(tools:any[]) {
+  return tools.map((t:any) => ({
+    type: "function" as const,
+    name: String(t.function?.name || t.name),
+    description: String(t.function?.description || t.description || ""),
+    parameters: t.function?.parameters || t.parameters || { type: "object", properties: {} },
+    ...(typeof (t.function?.strict ?? t.strict) === "boolean"
+      ? { strict: Boolean(t.function?.strict ?? t.strict) }
+      : {})
+  }));
+}
+
+async function runOpenAIResponses(
+  model:string,
+  input:string,
+  history:{role:"user"|"assistant";content:string}[],
+  tools:any[],
+  onEvent:(e:AgentEvent)=>void,
+  maxTurns:number,
+  executionId?:string
+):Promise<AgentRunResult> {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const inputItems:any[] = [
+    ...history.slice(-20).map(x => ({ role:x.role, content:x.content })),
+    { role:"user", content:input }
+  ];
+  let cancelled=false, toolCount=0, turn=0;
+  if(executionId) registerExecution(executionId,()=>{cancelled=true;});
+  const heartbeat=executionId?setInterval(()=>{void prisma.agentExecution.updateMany({
+    where:{id:executionId,status:{in:["RUNNING","CANCEL_REQUESTED"]}},data:{heartbeatAt:new Date()}
+  });},5000):undefined;
+
+  try {
+    while(turn<maxTurns) {
+      if(cancelled) return {text:"Execution cancelled by the user.",toolCount,turns:turn};
+      onEvent({type:"thinking",detail:"Choosing the next coding step."});
+      const response:any=await client.responses.create({
+        model,
+        instructions,
+        input:inputItems,
+        tools:normalizeResponseTools(tools),
+        tool_choice:"auto"
+      });
+
+      const calls=(response.output || []).filter((item:any)=>item.type==="function_call");
+      if(!calls.length) {
+        const text=String(response.output_text || "Task completed.");
+        onEvent({type:"message",text});
+        return {text,toolCount,turns:turn};
+      }
+
+      for(const call of calls) {
+        toolCount++;
+        const name=String(call.name || "");
+        onEvent({type:"tool_start",tool:name,detail:"Executing project tool."});
+        let output="";
+        try {
+          const args=JSON.parse(call.arguments || "{}");
+          output=String(await executeTool(name,args));
+          onEvent({type:"tool_result",tool:name,detail:output.slice(0,4000)});
+        } catch(error) {
+          const messageText=error instanceof Error?error.message:"Tool failed";
+          output=JSON.stringify({error:messageText});
+          onEvent({type:"tool_result",tool:name,detail:messageText});
+        }
+        inputItems.push({
+          type:"function_call_output",
+          call_id:call.call_id,
+          output
+        });
+      }
+      turn++;
+    }
+    const text="Lumia stopped at the autonomous execution safety limit.";
+    onEvent({type:"message",text});
+    return {text,toolCount,turns:turn};
+  } finally {
+    if(heartbeat) clearInterval(heartbeat);
+    if(executionId) unregisterExecution(executionId);
+  }
+}
+
 async function runChatProvider(
   provider: "openai"|"google"|"xai"|"groq",
   model: string,
@@ -212,6 +294,11 @@ export async function runModelProvider(
 ):Promise<AgentRunResult> {
   const selectedProvider=provider;
   const selectedModel=modelIdForLabel(provider, model || process.env.OPENAI_MODEL || "gpt-5.5");
+
+  if(selectedProvider==="openai") {
+    if(!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured on the server.");
+    return runOpenAIResponses(selectedModel,input,history,tools,onEvent,maxTurns,executionId);
+  }
 
   if(selectedProvider==="anthropic")
     return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId);
