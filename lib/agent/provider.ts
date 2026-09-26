@@ -300,8 +300,6 @@ export async function runModelProvider(
 
   if(selectedProvider==="anthropic")
     return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId);
-  if(selectedProvider==="openai" && !process.env.OPENAI_API_KEY)
-    throw new Error("OPENAI_API_KEY is not configured on the server.");
   if(selectedProvider==="google" && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY)
     throw new Error("GEMINI_API_KEY or GOOGLE_API_KEY is not configured on the server.");
   if(selectedProvider==="xai" && !process.env.XAI_API_KEY)
