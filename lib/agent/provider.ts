@@ -58,9 +58,7 @@ function normalizeResponseTools(tools:any[]) {
     name: String(t.function?.name || t.name),
     description: String(t.function?.description || t.description || ""),
     parameters: t.function?.parameters || t.parameters || { type: "object", properties: {} },
-    ...(typeof (t.function?.strict ?? t.strict) === "boolean"
-      ? { strict: Boolean(t.function?.strict ?? t.strict) }
-      : {})
+    strict: Boolean(t.function?.strict ?? t.strict ?? false)
   }));
 }
 
