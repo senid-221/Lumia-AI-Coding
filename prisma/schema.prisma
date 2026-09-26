@@ -92,6 +92,7 @@ model AgentExecution {
   parentExecutionId String?
   parentExecution AgentExecution? @relation("ExecutionResumes", fields:[parentExecutionId], references:[id], onDelete:SetNull)
   resumedExecutions AgentExecution[] @relation("ExecutionResumes")
+  queueAttempts Int @default(0)
   project Project? @relation(fields:[projectId], references:[id], onDelete:SetNull)
   conversation Conversation? @relation(fields:[conversationId], references:[id], onDelete:SetNull)
 }
