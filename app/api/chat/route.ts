@@ -5,6 +5,7 @@ import { isSimpleConversation, runConversationalProvider } from "@/lib/agent/con
 import { looksLikeConversation, looksLikeCodingTask } from "@/lib/agent/policy";
 import { rememberExplicitUserContext } from "@/lib/agent/memory";
 import { NextResponse } from "next/server";
+import { detectLanguage, languageInstruction } from "@/lib/agent/language-detector";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,7 @@ export async function POST(req:Request){
   const requestedModel=String(body.model||"").trim();
   const requestedProjectId=body.projectId?String(body.projectId):undefined;
   if(!task) return NextResponse.json({error:"Task is required"},{status:400});
+  const detectedLanguage=detectLanguage(task);
 
   if(agent==="hacking-lab" && !process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY && !process.env.XAI_API_KEY && !process.env.GROQ_API_KEY)
     return NextResponse.json({error:"Hacking Lab requires a configured AI provider."},{status:500});
@@ -78,6 +80,9 @@ export async function POST(req:Request){
   await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:task}});
   await prisma.conversation.update({where:{id:conversation.id},data:{updatedAt:new Date()}});
   await rememberExplicitUserContext(session.user.id, task);
+  if(detectedLanguage.code!=="unknown" && detectedLanguage.confidence>=0.55){
+    await prisma.userMemory.upsert({where:{userId_key:{userId:session.user.id,key:"preferred-language"}},create:{userId:session.user.id,kind:"language",key:"preferred-language",content:detectedLanguage.code,confidence:detectedLanguage.confidence},update:{kind:"language",content:detectedLanguage.code,confidence:detectedLanguage.confidence}});
+  }
   const storedHistory=await prisma.message.findMany({where:{conversationId:conversation.id},orderBy:{createdAt:"asc"},take:30});
   const history=storedHistory.map(m=>({role:m.role==="USER"?"user" as const:"assistant" as const,content:m.content}));
   const userMemories=await prisma.userMemory.findMany({where:{userId:session.user.id},orderBy:{updatedAt:"desc"},take:30,select:{kind:true,key:true,content:true}});
@@ -108,7 +113,7 @@ export async function POST(req:Request){
         }
 
 
-        const labPrompt=agent==="hacking-lab" ? "You are Lumia Hacking Lab Agent. Educational / Authorized Lab Only. Focus on defensive security, CTFs, simulations, secure code review, vulnerability explanations, and authorized lab targets. Never perform or instruct account takeover, credential theft, OTP interception, SIM swapping, malware deployment, persistence, evasion, destructive actions, or unauthorized access. Task:\n"+task : task;
+        const languagePrompt=languageInstruction(detectedLanguage);\n        const labPrompt=agent==="hacking-lab" ? "You are Lumia Hacking Lab Agent. Educational / Authorized Lab Only. Focus on defensive security, CTFs, simulations, secure code review, vulnerability explanations, and authorized lab targets. Never perform or instruct account takeover, credential theft, OTP interception, SIM swapping, malware deployment, persistence, evasion, destructive actions, or unauthorized access. Task:\n"+task : task;
         const result=await runAutonomousCodingTask(
           project.id,
           conversation!.id,
