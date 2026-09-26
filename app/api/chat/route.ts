@@ -21,6 +21,28 @@ function normalizeProvider(value:unknown):ProviderId {
   return "openai";
 }
 
+export async function GET(){
+  const session=await auth();
+  if(!session?.user?.id) return NextResponse.json({error:"Unauthorized"},{status:401});
+
+  const conversation=await prisma.conversation.findFirst({
+    where:{userId:session.user.id},
+    orderBy:{updatedAt:"desc"},
+    include:{messages:{orderBy:{createdAt:"asc"},take:100,select:{id:true,role:true,content:true,createdAt:true}}}
+  });
+
+  if(!conversation) return NextResponse.json({conversation:null,messages:[]});
+
+  return NextResponse.json({
+    conversation:{id:conversation.id,title:conversation.title,createdAt:conversation.createdAt,updatedAt:conversation.updatedAt},
+    messages:conversation.messages.map(message=>({
+      id:message.id,
+      role:message.role==="USER"?"user":"assistant",
+      content:message.content
+    }))
+  });
+}
+
 export async function POST(req:Request){
   const session=await auth();
   if(!session?.user?.id) return NextResponse.json({error:"Unauthorized"},{status:401});
@@ -58,7 +80,7 @@ export async function POST(req:Request){
   if(!conversation)
     conversation=await prisma.conversation.create({data:{userId:session.user.id,projectId:project.id,title:task.slice(0,80)}});
 
-  await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:task}});
+  await prisma.message.create({data:{conversationId:conversation.id,role:"USER",content:task}});\n  await prisma.conversation.update({where:{id:conversation.id},data:{updatedAt:new Date()}});
   await rememberExplicitUserContext(session.user.id, task);
   const storedHistory=await prisma.message.findMany({where:{conversationId:conversation.id},orderBy:{createdAt:"asc"},take:30});
   const history=storedHistory.map(m=>({role:m.role==="USER"?"user" as const:"assistant" as const,content:m.content}));
@@ -82,7 +104,7 @@ export async function POST(req:Request){
             memoryContext,
             event=>send(event)
           );
-          await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});
+          await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});\n          await prisma.conversation.update({where:{id:conversation!.id},data:{updatedAt:new Date()}});
           send({type:"message",text:result.text});
           send({type:"complete",toolCount:0,turns:0});
           return;
