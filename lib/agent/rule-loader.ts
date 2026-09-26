@@ -28,7 +28,11 @@ const ROLE_FILES: Record<SpecialistRole, string> = {
   coder: ".lumia/agents/coder.md",
   reviewer: ".lumia/agents/reviewer.md",
   debugger: ".lumia/agents/debugger.md",
-  verifier: ".lumia/agents/verifier.md"
+  verifier: ".lumia/agents/verifier.md",
+  researcher: ".lumia/agents/researcher.md",
+  "security-reviewer": ".lumia/agents/security-reviewer.md",
+  "ui-specialist": ".lumia/agents/ui-specialist.md",
+  "database-specialist": ".lumia/agents/database-specialist.md"
 };
 
 async function readRule(projectId: string, relativePath: string) {
