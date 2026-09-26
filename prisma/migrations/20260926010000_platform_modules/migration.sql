@@ -291,3 +291,5 @@ ALTER TABLE "LabReport" ADD CONSTRAINT "LabReport_targetId_fkey" FOREIGN KEY ("t
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "legacyAttachmentMigrationNote" TEXT;
