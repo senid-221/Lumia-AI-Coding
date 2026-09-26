@@ -98,7 +98,7 @@ export async function runConversationalProvider(
 export function isSimpleConversation(input: string) {
   const value = input.trim().toLowerCase();
   if (!value) return false;
-  if (/^(hello|hi|hey|hiya|howdy|good morning|good afternoon|good evening|thanks|thank you|ok|okay|yo|sup)[!.?,\s]*$/i.test(value)) return true;
+  if (/^(hello+|hi+|hey+|hiya+|howdy|good morning|good afternoon|good evening|thanks+|thank you|ok+|okay+|yo+|sup+)[!.?,\s]*$/i.test(value)) return true;
   if (/^(who are you|what are you|what can you do|help|how are you)[?.!\s]*$/i.test(value)) return true;
   return false;
 }
