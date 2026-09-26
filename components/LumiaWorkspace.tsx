@@ -39,7 +39,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [enterToSend,setEnterToSend] = useState(true);
   const [showActivity,setShowActivity] = useState(true);
   const [confirmCommands,setConfirmCommands] = useState(true);
-  const rootRef=useRef<HTMLElement>(null);
+  const rootRef=useRef<HTMLElement>(null);\n  const chatEndRef=useRef<HTMLDivElement>(null);
   const providerEntry=liveProviders.find(p=>p.id===provider);
   const models=providerEntry?.models || [];
   const selectedModel=models.find(m=>m.id===model);
@@ -196,7 +196,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
           </section>
         )}
 
-        {status && <div className="agent-status"><span className="status-dot"></span><span>{status}</span><span className="status-pulse">•••</span></div>}
+        <div ref={chatEndRef} aria-hidden="true" />\n        {status && <div className="agent-status"><span className="status-dot"></span><span>{status}</span><span className="status-pulse">•••</span></div>}
         {error && <div className="error-banner">{error}</div>}
 
         <section className="composer">
