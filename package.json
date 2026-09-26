@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "worker": "tsx scripts/agent-worker.ts"
+    "worker": "tsx scripts/agent-worker.ts",
+    "test:language": "tsx scripts/test-language-detector.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
