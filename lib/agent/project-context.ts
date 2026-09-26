@@ -115,6 +115,19 @@ export async function loadPersistedProjectSnapshot(projectId: string): Promise<P
       return null;
     }
 
+    // A persisted snapshot is reusable only while the workspace's Git state
+    // still matches the state captured when the snapshot was created.
+    if (context.git.available) {
+      try {
+        const current = await runProjectCommand(projectId, "git", ["status", "--short", "--branch"]);
+        if (current.code !== 0) return null;
+        const currentStatus = (current.stdout || current.stderr).trim().slice(0, 6000) || "Clean working tree.";
+        if (currentStatus !== context.git.status) return null;
+      } catch {
+        return null;
+      }
+    }
+
     return context;
   } catch {
     return null;
