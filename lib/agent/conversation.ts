@@ -69,14 +69,16 @@ export async function runConversationalProvider(
   if (provider === "openai") {
     const response = await client(provider).responses.create({
       model,
-      instructions: systemPrompt,
+      instructions: systemPrompt + "\\n\\nResearch rule: For factual, current, unfamiliar, or potentially uncertain questions, use web search before answering. Prefer primary or authoritative sources. If web research was used, ground the answer in the retrieved sources and do not invent facts.",
+      tools: [{ type: "web_search", search_context_size: "medium" }],
+      tool_choice: "auto",
       input: [...history.slice(-12).map(message => ({
         role: message.role,
         content: message.content
       })), { role: "user" as const, content: input }]
     });
     return {
-      text: String(response.output_text || "Hello! How can I help you today?")
+      text: String(response.output_text || "I could not produce a response.")
     };
   }
 
