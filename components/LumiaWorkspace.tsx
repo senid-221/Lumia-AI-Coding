@@ -97,7 +97,8 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       while (true) {
         const {value:chunk,done}=await reader.read();
         buffer += decoder.decode(chunk || new Uint8Array(),{stream:!done});
-        const lines=buffer.split("\n");
+        const lines=buffer.split("
+");
         buffer=lines.pop() || "";
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
@@ -197,7 +198,8 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
           </section>
         )}
 
-        <div ref={chatEndRef} aria-hidden="true" />\n        {status && <div className="agent-status"><span className="status-dot"></span><span>{status}</span><span className="status-pulse">•••</span></div>}
+        <div ref={chatEndRef} aria-hidden="true" />
+        {status && <div className="agent-status"><span className="status-dot"></span><span>{status}</span><span className="status-pulse">•••</span></div>}
         {error && <div className="error-banner">{error}</div>}
 
         <section className="composer">
