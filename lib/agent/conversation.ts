@@ -68,19 +68,31 @@ export async function runConversationalProvider(
   }
 
   if (provider === "openai") {
-    const response = await client(provider).responses.create({
+    onEvent?.({ type: "thinking", detail: "Understanding your request..." });
+    const stream = await client(provider).responses.create({
       model,
-      instructions: systemPrompt + "\\n\\nResearch rule: For factual, current, unfamiliar, or potentially uncertain questions, use web search before answering. Prefer primary or authoritative sources. If web research was used, ground the answer in the retrieved sources and do not invent facts.",
+      instructions: systemPrompt + "\\n\\nConversation behavior: Answer naturally like a conversational AI. If the request is underspecified, ask for the missing information before acting. When useful, offer a small set of clear choices. For factual, current, unfamiliar, or potentially uncertain questions, use live web search before answering and ground factual claims in retrieved sources.",
       tools: [{ type: "web_search", search_context_size: "medium" }],
       tool_choice: "auto",
+      stream: true,
       input: [...history.slice(-12).map(message => ({
         role: message.role,
         content: message.content
       })), { role: "user" as const, content: input }]
     });
-    return {
-      text: String(response.output_text || "I could not produce a response.")
-    };
+    let text = "";
+    for await (const event of stream as any) {
+      if (event.type === "response.web_search_call.in_progress") {
+        onEvent?.({ type: "thinking", detail: "Researching online..." });
+      } else if (event.type === "response.web_search_call.completed") {
+        onEvent?.({ type: "thinking", detail: "Reviewing sources..." });
+      } else if (event.type === "response.output_text.delta") {
+        const delta = String(event.delta || "");
+        text += delta;
+        onEvent?.({ type: "delta", text: delta });
+      }
+    }
+    return { text: text.trim() || "I could not produce a response." };
   }
 
   const response = await client(provider).chat.completions.create({
