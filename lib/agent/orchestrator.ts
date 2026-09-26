@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getProjectContext, upsertProjectMemory } from "./memory";
 import { openAIProvider, runOpenAICompatible } from "./provider";
-import { getZencodeClient } from "@/lib/zencode";
+import { runZencoderRuntime } from "@/lib/zencode";
+import { ensureProjectWorkspace } from "./workspace";
 import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
 
@@ -49,16 +50,17 @@ export async function runAutonomousCodingTask(
 
     const sharedContext = [contextSummary, ...shared].filter(Boolean).join("\n\n").slice(-12000);
     const result = provider === "zencode"
-      ? await runOpenAICompatible(
-          getZencodeClient(),
-          specialistPrompt(role, task, sharedContext),
-          effectiveHistory,
-          TOOL_DEFINITIONS.map(tool => tool as any),
-          event => onEvent({ ...event, role }),
-          specialistTurns,
-          execution.id,
-          model
-        )
+      ? await (async () => {
+          const workspace = await ensureProjectWorkspace(projectId);
+          onEvent({ type: "thinking", detail: `Starting Zencoder ${SPECIALISTS[role].name} runtime.`, role });
+          const runtime = await runZencoderRuntime(
+            specialistPrompt(role, task, sharedContext),
+            workspace,
+            chunk => onEvent({ type: "runtime_output", role, detail: chunk.slice(-4000) })
+          );
+          onEvent({ type: "message", text: runtime.text, role });
+          return { text: runtime.text, toolCount: 1, turns: 1 };
+        })()
       : await openAIProvider.run(
           specialistPrompt(role, task, sharedContext),
           effectiveHistory,
