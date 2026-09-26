@@ -112,7 +112,30 @@ async function runOpenAIResponses(
         onEvent({type:"tool_start",tool:name,detail:"Executing project tool."});
         let output="";
         try {
-          const args=JSON.parse(call.arguments || "{}");
+          let rawArguments = String(call.arguments || "{}").trim();
+
+          // Some providers can occasionally emit malformed/truncated JSON
+          // for function arguments. Keep the failure inside the tool loop so
+          // the model can see the error and retry instead of aborting Lumia.
+          let args:any;
+          try {
+            args = JSON.parse(rawArguments);
+          } catch(parseError) {
+            const parseMessage = parseError instanceof Error ? parseError.message : "Invalid JSON";
+            output = JSON.stringify({
+              error: "Invalid tool arguments JSON.",
+              parseError: parseMessage,
+              arguments: rawArguments.slice(0, 4000)
+            });
+            onEvent({type:"tool_result",tool:name,detail:parseMessage});
+            inputItems.push({
+              type:"function_call_output",
+              call_id:call.call_id,
+              output
+            });
+            continue;
+          }
+
           output=String(await executeTool(name,args));
           onEvent({type:"tool_result",tool:name,detail:output.slice(0,4000)});
         } catch(error) {
