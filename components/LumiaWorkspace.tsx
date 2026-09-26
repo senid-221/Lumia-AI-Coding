@@ -32,6 +32,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [timerOn,setTimerOn] = useState(true);
   const [notice,setNotice] = useState("");
   const [status,setStatus] = useState("");
+  const [detectedLanguage,setDetectedLanguage] = useState<{code:string;name:string;confidence:number;mixed:boolean}|null>(null);
   const [liveProviders,setLiveProviders] = useState<ProviderOption[]>([]);
   const [modelsLoading,setModelsLoading] = useState(true);
   const [modelSearch,setModelSearch] = useState("");
@@ -126,7 +127,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   async function send() {
     const value = task.trim();
     if (!value || busy) return;
-    setTask(""); setError(""); setStatus("Thinking..."); setMessages(m=>[...m,{role:"user",content:value,id:crypto.randomUUID()}]); setBusy(true);
+    setTask(""); setError(""); setStatus("Thinking..."); setDetectedLanguage(null); setMessages(m=>[...m,{role:"user",content:value,id:crypto.randomUUID()}]); setBusy(true);
     try {
       const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider,model,projectId:activeProjectId})});
       if (!res.ok || !res.body) throw new Error((await res.json().catch(()=>({}))).error || "Request failed");
@@ -137,6 +138,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       let buffer = "";
       const handleEvent = (event:any) => {
         if(event.type==="conversation") setConversationId(event.id);
+        if(event.type==="language") setDetectedLanguage({code:String(event.code||"unknown"),name:String(event.name||"Unknown"),confidence:Number(event.confidence||0),mixed:Boolean(event.mixed)});
         if(event.type==="thinking" && showActivity) setStatus(event.detail || "Thinking...");
         if(event.type==="specialist_start" && showActivity) setStatus((event.name || "Agent").replace(/[-_]/g," ").replace(/\b\w/g,(c:string)=>c.toUpperCase()) + "...");
         if(event.type==="tool_start" && showActivity) {
@@ -292,6 +294,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
 
         <div ref={chatEndRef} aria-hidden="true" />
         {status && <div className="agent-status"><span className="status-dot"></span><span>{status}</span><span className="status-pulse">•••</span></div>}
+        {detectedLanguage && detectedLanguage.code!=="unknown" && <div style={{fontSize:11,opacity:.55,textAlign:"center",padding:"4px 0"}}>Language: {detectedLanguage.name} · {Math.round(detectedLanguage.confidence*100)}%{detectedLanguage.mixed ? " · mixed" : ""}</div>}
         {error && <div className="error-banner">{error}</div>}
 
         <section className="composer">
