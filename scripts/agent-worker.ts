@@ -14,7 +14,6 @@ async function processJob(){
   }
   if(["CANCELLED","SUCCEEDED"].includes(execution?.status||""))return true;
   await prisma.agentExecution.updateMany({where:{id:job.executionId},data:{status:"RUNNING",queueAttempts:{increment:1},heartbeatAt:new Date()}});
-  if(["CANCELLED","SUCCEEDED"].includes(execution.status))return true;
 
   try{
     await runAutonomousCodingTask(
