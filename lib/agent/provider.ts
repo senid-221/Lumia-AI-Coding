@@ -3,6 +3,7 @@ import { executeTool } from "./tools";
 import { registerExecution, unregisterExecution } from "./execution-control";
 import { prisma } from "@/lib/prisma";
 import { hasProviderKey, modelIdForLabel } from "./model-router";
+import { LUMIA_CODING_INSTRUCTIONS } from "./policy";
 export type ModelProvider = "anthropic"|"openai"|"google"|"xai"|"groq";
 
 export type AgentEvent =
@@ -13,11 +14,7 @@ export type AgentEvent =
 
 export type AgentRunResult = { text:string; toolCount:number; turns:number };
 
-const instructions =
-  "You are Lumia AI Agent running in CODING AGENT mode, not chat mode. " +
-  "Inspect the project before editing. Use the provided project tools to read files, search code, edit files, run tests and verify changes. " +
-  "Do not answer with a tutorial instead of acting. Treat tool output as ground truth. Never claim a change or command result without a tool result. " +
-  "Stay within the bounded execution limit.";
+const instructions = LUMIA_CODING_INSTRUCTIONS + "\nYou are currently running in CODING AGENT mode.";
 
 function openAICompatibleClient(provider: "openai"|"google"|"xai"|"groq") {
   if (provider === "openai") return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -69,7 +66,8 @@ async function runOpenAIResponses(
   tools:any[],
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
-  executionId?:string
+  executionId?:string,
+  projectId?:string
 ):Promise<AgentRunResult> {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const inputItems:any[] = [
@@ -136,7 +134,7 @@ async function runOpenAIResponses(
             continue;
           }
 
-          output=String(await executeTool(name,args));
+          output=String(await executeTool(name,args,projectId || ""));
           onEvent({type:"tool_result",tool:name,detail:output.slice(0,4000)});
         } catch(error) {
           const messageText=error instanceof Error?error.message:"Tool failed";
@@ -168,7 +166,8 @@ async function runChatProvider(
   tools:any[],
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
-  executionId?:string
+  executionId?:string,
+  projectId?:string
 ):Promise<AgentRunResult> {
   const client = openAICompatibleClient(provider);
   const messages:any[] = [
@@ -207,7 +206,7 @@ async function runChatProvider(
         onEvent({type:"tool_start",tool:name,detail:"Executing project tool."});
         try {
           const args=JSON.parse(call.function?.arguments || "{}");
-          const result=await executeTool(name,args);
+          const result=await executeTool(name,args,projectId || "");
           const output=String(result);
           onEvent({type:"tool_result",tool:name,detail:output.slice(0,4000)});
           messages.push({role:"tool",tool_call_id:call.id,content:output});
@@ -243,7 +242,8 @@ async function runAnthropic(
   tools:any[],
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
-  executionId?:string
+  executionId?:string,
+  projectId?:string
 ):Promise<AgentRunResult> {
   const key=process.env.ANTHROPIC_API_KEY;
   if(!key) throw new Error("ANTHROPIC_API_KEY is not configured on the server.");
@@ -285,7 +285,7 @@ async function runAnthropic(
         toolCount++;
         onEvent({type:"tool_start",tool:use.name,detail:"Executing project tool."});
         try {
-          const result=await executeTool(use.name,use.input || {});
+          const result=await executeTool(use.name,use.input || {},projectId || "");
           const output=String(result);
           onEvent({type:"tool_result",tool:use.name,detail:output.slice(0,4000)});
           results.push({type:"tool_result",tool_use_id:use.id,content:output});
@@ -316,18 +316,19 @@ export async function runModelProvider(
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
   executionId?:string,
-  routingRole?:string
+  routingRole?:string,
+  projectId?:string
 ):Promise<AgentRunResult> {
   const selectedProvider=provider;
   const selectedModel=modelIdForLabel(provider, model || process.env.OPENAI_MODEL || "gpt-5.5");
 
   if(selectedProvider==="openai") {
     if(!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured on the server.");
-    return runOpenAIResponses(selectedModel,input,history,tools,onEvent,maxTurns,executionId);
+    return runOpenAIResponses(selectedModel,input,history,tools,onEvent,maxTurns,executionId,projectId);
   }
 
   if(selectedProvider==="anthropic")
-    return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId);
+    return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId,projectId);
   if(selectedProvider==="google" && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY)
     throw new Error("GEMINI_API_KEY or GOOGLE_API_KEY is not configured on the server.");
   if(selectedProvider==="xai" && !process.env.XAI_API_KEY)
@@ -335,7 +336,7 @@ export async function runModelProvider(
   if(selectedProvider==="groq" && !process.env.GROQ_API_KEY)
     throw new Error("GROQ_API_KEY is not configured on the server.");
 
-  return runChatProvider(selectedProvider,selectedModel,input,history,tools,onEvent,maxTurns,executionId);
+  return runChatProvider(selectedProvider,selectedModel,input,history,tools,onEvent,maxTurns,executionId,projectId);
 }
 
 export const openAIProvider = {
