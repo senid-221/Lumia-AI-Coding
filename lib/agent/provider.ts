@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { executeTool } from "./tools";
 import { registerExecution, unregisterExecution } from "./execution-control";
 import { prisma } from "@/lib/prisma";
+import { hasProviderKey, modelIdForLabel } from "./model-router";
 export type ModelProvider = "anthropic"|"openai"|"google"|"xai";
 
 export type AgentEvent =
@@ -197,7 +198,7 @@ export async function runModelProvider(
   routingRole?:string
 ):Promise<AgentRunResult> {
   const selectedProvider=provider;
-  const selectedModel=model || process.env.OPENAI_MODEL || "gpt-5.5";
+  const selectedModel=modelIdForLabel(provider, model || process.env.OPENAI_MODEL || "gpt-5.5");
 
   if(selectedProvider==="anthropic")
     return runAnthropic(selectedModel,input,history,tools,onEvent,maxTurns,executionId);
