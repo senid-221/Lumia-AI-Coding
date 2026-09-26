@@ -46,7 +46,7 @@ export async function POST(req:Request){
   const conversationId=body.conversationId?String(body.conversationId):undefined;
   const agent=normalizeAgent(body.agent);
   const provider=normalizeProvider(body.provider);
-  const requestedModel=String(body.model||"").trim();
+  const requestedModel=String(body.model||"").trim();\n  const requestedProjectId=body.projectId?String(body.projectId):undefined;
   if(!task) return NextResponse.json({error:"Task is required"},{status:400});
 
   if(agent==="hacking-lab" && !process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY && !process.env.XAI_API_KEY && !process.env.GROQ_API_KEY)
