@@ -70,13 +70,10 @@ export async function runConversationalProvider(
     const response = await client(provider).responses.create({
       model,
       instructions: systemPrompt,
-      input: [
-        ...history.slice(-12).map(message => ({
-          role: message.role,
-          content: [{ type: "input_text" as const, text: message.content }]
-        })),
-        { role: "user" as const, content: [{ type: "input_text" as const, text: input }] }
-      ]
+      input: [...history.slice(-12).map(message => ({
+        role: message.role,
+        content: message.content
+      })), { role: "user" as const, content: input }]
     });
     return {
       text: String(response.output_text || "Hello! How can I help you today?")
