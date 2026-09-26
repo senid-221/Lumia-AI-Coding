@@ -7,8 +7,14 @@ type Msg = { role:"user"|"assistant"; content:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
 type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account";
 const agents=["ai-agent","hacking-lab"];
-const providers=["OpenAI","Zencoder"];
-const models=["gpt-5.5","Sonnet 4.5","Gemini"];
+const providerModels: Record<string,string[]> = {
+  Anthropic:["Haiku 4.5","Sonnet 4.6","Opus 4.6","Opus 4.7"],
+  OpenAI:["GPT-5.3 Codex","GPT-5.4","GPT-5.4-mini","GPT-5.5"],
+  Google:["Gemini Pro 3.1","Gemini Flash 3.0"],
+  xAI:["Grok Code Fast 1"],
+  Zencoder:["Auto","Auto+"]
+};
+const providers=Object.keys(providerModels);
 
 export default function LumiaWorkspace({ accountControl }: { accountControl: React.ReactNode }) {
   const [task,setTask] = useState("");
@@ -19,17 +25,20 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [menu,setMenu] = useState<MenuState>("none");
   const [agent,setAgent] = useState("ai-agent");
   const [provider,setProvider] = useState("OpenAI");
-  const [model,setModel] = useState("gpt-5.5");
+  const [model,setModel] = useState("GPT-5.5");
   const [skipInstall,setSkipInstall] = useState(false);
   const [timerOn,setTimerOn] = useState(true);
   const [notice,setNotice] = useState("");
   const rootRef=useRef<HTMLElement>(null);
+  const models=providerModels[provider] || [];
 
   useEffect(()=>{
     const close=(e:MouseEvent)=>{ if(rootRef.current && !rootRef.current.contains(e.target as Node)) setMenu("none"); };
     document.addEventListener("mousedown",close);
     return()=>document.removeEventListener("mousedown",close);
   },[]);
+
+  useEffect(()=>{ if(!models.includes(model)) setModel(models[0] || "Auto"); },[provider]);
 
   async function send() {
     const value = task.trim();
