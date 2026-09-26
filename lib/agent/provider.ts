@@ -249,6 +249,7 @@ async function runAnthropic(
   onEvent:(e:AgentEvent)=>void,
   maxTurns:number,
   executionId?:string,
+  role: SpecialistRole = "coder",
   projectId?:string
 ):Promise<AgentRunResult> {
   const key=process.env.ANTHROPIC_API_KEY;
