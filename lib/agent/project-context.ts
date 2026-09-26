@@ -98,7 +98,7 @@ export async function inspectProjectContext(projectId: string): Promise<ProjectC
   } catch (error) { git = { available: false, status: error instanceof Error ? error.message : "Git inspection failed." }; }
   let rules = "";
   try { rules = await loadProjectRules(projectId, "planner"); } catch {}
-  return {
+  const snapshot: ProjectContextSnapshot = {
     projectId, inspectedAt: new Date().toISOString(),
     structure: { files, totalVisibleFiles: rawFiles.length, truncated: rawFiles.length > MAX_FILES },
     stack: { ...stack, packageManager: detectPackageManager(rawFiles), runtime: pkg?.engines?.node || (files.includes("package.json") ? "Node.js" : null) },
@@ -106,6 +106,8 @@ export async function inspectProjectContext(projectId: string): Promise<ProjectC
     database: { prisma: schemaFiles.includes("prisma/schema.prisma"), migrations: schemaFiles.some(f => f.startsWith("prisma/migrations/")), schemaFiles },
     git, rules: { loaded: Boolean(rules), bytes: Buffer.byteLength(rules, "utf8") }
   };
+  try { await persistProjectSnapshot(snapshot); } catch {}
+  return snapshot;
 }
 
 export function formatProjectContext(context: ProjectContextSnapshot) {
