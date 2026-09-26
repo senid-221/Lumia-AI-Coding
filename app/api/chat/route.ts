@@ -27,8 +27,10 @@ export async function POST(req:Request){
 
   if(agent==="hacking-lab" && provider!=="zencode" && !process.env.OPENAI_API_KEY)
     return NextResponse.json({error:"Hacking Lab requires a configured AI provider."},{status:500});
-  if(provider==="zencode" && !process.env.ZENCODE_API_KEY)
-    return NextResponse.json({error:"Zencoder API key is not configured on the server."},{status:500});
+  if(provider==="zencode" && !process.env.ZENCODER_RUNTIME_COMMAND)
+    return NextResponse.json({
+      error:"Zencoder runtime is not configured. Set ZENCODER_RUNTIME_COMMAND to an installed, supported coding-agent CLI on the Lumia worker. Lumia does not send Zencoder keys to an undocumented REST endpoint."
+    },{status:500});
   if(provider==="openai" && !process.env.OPENAI_API_KEY)
     return NextResponse.json({error:"OPENAI_API_KEY is not configured on the server."},{status:500});
 
