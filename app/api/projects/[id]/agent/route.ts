@@ -23,7 +23,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
     const source=await prisma.agentExecution.findFirst({where:{id:resumeExecutionId,projectId:id,status:"QUEUED",project:{userId:session.user.id}}});
     if(!source)return NextResponse.json({error:"Queued resume execution not found"},{status:404});
   }
-  if(!process.env.OPENAI_API_KEY)return NextResponse.json({error:"OPENAI_API_KEY is not configured"},{status:500});
+  if(!resumeExecutionId && !process.env.OPENAI_API_KEY)return NextResponse.json({error:"OPENAI_API_KEY is not configured"},{status:500});
 
   const existing=resumeExecutionId?await prisma.agentExecution.findUnique({where:{id:resumeExecutionId},select:{conversationId:true,prompt:true}}):null;
   const conversation=existing?.conversationId
