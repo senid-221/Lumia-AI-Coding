@@ -50,27 +50,26 @@ export async function runAutonomousCodingTask(
     if (!isExecutionActive(execution.id)) throw new Error("Execution cancelled.");
 
     const sharedContext = [contextSummary, ...shared].filter(Boolean).join("\n\n").slice(-12000);
-    const result =
-      provider === "zencode"
-        ? await runOpenAICompatible(
-            getZencodeClient(),
-            specialistPrompt(role, task, sharedContext),
-            effectiveHistory,
-            TOOL_DEFINITIONS.map(tool => tool as any),
-            event => onEvent({ ...event, role }),
-            specialistTurns,
-            execution.id,
-            model
-          )
-        : await openAIProvider.run(
-            specialistPrompt(role, task, sharedContext),
-            effectiveHistory,
-            TOOL_DEFINITIONS.map(tool => tool as any),
-            event => onEvent({ ...event, role }),
-            specialistTurns,
-            execution.id,
-            model
-          );
+    const result = provider === "zencode"
+      ? await runOpenAICompatible(
+          getZencodeClient(),
+          specialistPrompt(role, task, sharedContext),
+          effectiveHistory,
+          TOOL_DEFINITIONS.map(tool => tool as any),
+          event => onEvent({ ...event, role }),
+          specialistTurns,
+          execution.id,
+          model
+        )
+      : await openAIProvider.run(
+          specialistPrompt(role, task, sharedContext),
+          effectiveHistory,
+          TOOL_DEFINITIONS.map(tool => tool as any),
+          event => onEvent({ ...event, role }),
+          specialistTurns,
+          execution.id,
+          model
+        );
 
     toolCount += result.toolCount;
     turns += result.turns;
@@ -91,11 +90,9 @@ export async function runAutonomousCodingTask(
 
     const verification = await roleRun(
       "verifier",
-      prompt +
-        "\nReview:\n" +
-        review +
-        (debug ? "\nDebugger:\n" + debug : "") +
-        "\nVerify the current project using available tools."
+      prompt + "\nReview:\n" + review +
+      (debug ? "\nDebugger:\n" + debug : "") +
+      "\nVerify the current project using available tools."
     );
 
     const final = [
