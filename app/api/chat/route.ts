@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { runAutonomousCodingTask, type ProviderId } from "@/lib/agent/orchestrator";
 import { isSimpleConversation, runConversationalProvider } from "@/lib/agent/conversation";
+import { looksLikeConversation, looksLikeCodingTask } from "@/lib/agent/policy";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -68,7 +69,7 @@ export async function POST(req:Request){
       send({type:"provider",provider,model:requestedModel||undefined});
 
       try{
-        if(agent==="ai-agent" && isSimpleConversation(task)){
+        if(agent==="ai-agent" && (isSimpleConversation(task) || (looksLikeConversation(task) && !looksLikeCodingTask(task)))){
           const result=await runConversationalProvider(provider,requestedModel||undefined,task,history);
           await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});
           send({type:"message",text:result.text});
