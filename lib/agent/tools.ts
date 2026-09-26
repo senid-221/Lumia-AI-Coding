@@ -1,6 +1,7 @@
 import { ensureProjectWorkspace } from "./workspace";
 import { listProjectFiles,readProjectFile,writeProjectFile,searchProjectCode } from "./project-files";
 import { runProjectCommand } from "./command-runner";
+import { ensureProjectWorkspace } from "./workspace";
 
 export const TOOL_DEFINITIONS=[
  {type:"function",name:"list_files",description:"List project files.",parameters:{type:"object",properties:{path:{type:"string"}},required:["path"],additionalProperties:false},strict:true},
@@ -12,6 +13,8 @@ export const TOOL_DEFINITIONS=[
 ] as const;
 
 export async function executeTool(name:string,args:any,projectId:string){
+ if(!projectId) throw new Error("Project scope is required");
+ await ensureProjectWorkspace(projectId);
  const bound={...(args||{}),projectId};
  if(name==="list_files")return JSON.stringify(await listProjectFiles(projectId,bound.path||"."));
  if(name==="read_file")return await readProjectFile(projectId,bound.path);
