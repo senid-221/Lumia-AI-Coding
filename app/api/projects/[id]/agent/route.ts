@@ -32,9 +32,11 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
 
   const stream=new ReadableStream({
     async start(controller){
+      let emittedExecutionId:string|undefined;
       const encoder=new TextEncoder();
       const send=(data:unknown)=>controller.enqueue(encoder.encode(sse(data)));
       send({type:"conversation",id:conversation.id});
+      if(resumeExecutionId) send({type:"resume",executionId:resumeExecutionId});
 
       try{
         const result=await runAutonomousCodingTask(
