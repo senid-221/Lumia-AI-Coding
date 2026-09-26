@@ -7,6 +7,8 @@ export const runtime = "nodejs";
 
 const sse=(data:unknown)=>"data: "+JSON.stringify(data)+"\n\n";
 
+function normalizeAgent(value:unknown) { return String(value||"ai-agent").toLowerCase()==="hacking-lab" ? "hacking-lab" : "ai-agent"; }
+
 function normalizeProvider(value:unknown):ProviderId {
   return String(value||"openai").toLowerCase()==="zencode" ? "zencode" : "openai";
 }
@@ -18,10 +20,13 @@ export async function POST(req:Request){
   const body=await req.json().catch(()=>({}));
   const task=String(body.task||"").trim();
   const conversationId=body.conversationId?String(body.conversationId):undefined;
+  const agent=normalizeAgent(body.agent);
   const provider=normalizeProvider(body.provider);
   const requestedModel=String(body.model||"").trim();
   if(!task) return NextResponse.json({error:"Task is required"},{status:400});
 
+  if(agent==="hacking-lab" && provider!=="zencode" && !process.env.OPENAI_API_KEY)
+    return NextResponse.json({error:"Hacking Lab requires a configured AI provider."},{status:500});
   if(provider==="zencode" && !process.env.ZENCODE_API_KEY)
     return NextResponse.json({error:"Zencoder API key is not configured on the server."},{status:500});
   if(provider==="openai" && !process.env.OPENAI_API_KEY)
@@ -51,10 +56,11 @@ export async function POST(req:Request){
       send({type:"provider",provider,model:requestedModel||undefined});
 
       try{
+        const labPrompt=agent==="hacking-lab" ? "You are Lumia Hacking Lab Agent. Educational / Authorized Lab Only. Focus on defensive security, CTFs, simulations, secure code review, vulnerability explanations, and authorized lab targets. Never perform or instruct account takeover, credential theft, OTP interception, SIM swapping, malware deployment, persistence, evasion, destructive actions, or unauthorized access. Task:\n"+task : task;
         const result=await runAutonomousCodingTask(
           project.id,
           conversation!.id,
-          task,
+          labPrompt,
           history,
           event=>send(event),
           undefined,
