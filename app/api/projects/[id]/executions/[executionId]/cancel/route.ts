@@ -9,7 +9,7 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string;exec
   if(!session?.user?.id)return NextResponse.json({error:"Unauthorized"},{status:401});
   const execution=await prisma.agentExecution.findFirst({where:{id:executionId,projectId:id,project:{userId:session.user.id}}});
   if(!execution)return NextResponse.json({error:"Execution not found"},{status:404});
-  if(!["RUNNING","CANCEL_REQUESTED"].includes(execution.status))return NextResponse.json({status:execution.status});
+  if(!["QUEUED","RUNNING","CANCEL_REQUESTED"].includes(execution.status))return NextResponse.json({status:execution.status});
   await markCancelRequested(executionId);
   const active=requestExecutionCancel(executionId);
   return NextResponse.json({status:"CANCEL_REQUESTED",active});
