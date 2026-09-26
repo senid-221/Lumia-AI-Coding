@@ -1,7 +1,6 @@
 import { ensureProjectWorkspace } from "./workspace";
 import { listProjectFiles,readProjectFile,writeProjectFile,searchProjectCode } from "./project-files";
 import { runProjectCommand } from "./command-runner";
-import { ensureProjectWorkspace } from "./workspace";
 
 export const TOOL_DEFINITIONS=[
  {type:"function",name:"list_files",description:"List project files.",parameters:{type:"object",properties:{path:{type:"string"}},required:["path"],additionalProperties:false},strict:true},
