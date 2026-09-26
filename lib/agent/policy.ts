@@ -31,7 +31,7 @@ export const LUMIA_CODING_INSTRUCTIONS = [...LUMIA_CHAT_RULES, ...LUMIA_CODING_R
 export function looksLikeCodingTask(input: string) {
   const v = input.trim().toLowerCase();
   if (!v) return false;
-  return /\b(build|create|make|implement|code|coding|fix|debug|repair|refactor|edit|change|update|modify|remove|delete|add|install|run|test|tests|lint|typecheck|compile|deploy|website|web app|app|project|repository|repo|file|component|api|database|prisma|next\.js|react|typescript|javascript|css|html|git|github|docker|function|endpoint|route)\b/.test(v);
+  return /\b(build|create|make|implement|code|coding|fix|debug|repair|refactor|edit|change|update|modify|remove|delete|add|install|run|test|tests|lint|typecheck|compile|deploy)\b/.test(v) || /\b(my|this|the)\s+(website|web app|app|project|repository|repo|file|component|api|database|code|function|endpoint|route)\b/.test(v) || /\b(website|web app|app|project|repository|repo|file|component|api|database|code|function|endpoint|route)\s+(for|with|using|that|which)\b/.test(v);
 }
 
 export function looksLikeConversation(input: string) {
