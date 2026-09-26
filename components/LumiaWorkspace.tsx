@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound, Info } from "lucide-react";
+import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound, Info, Paperclip, Mic, Copy, ThumbsUp, ThumbsDown, RotateCcw, Plus } from "lucide-react";
 
-type Msg = { role:"user"|"assistant"; content:string };
+type Msg = { role:"user"|"assistant"; content:string; id:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
 type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account"|"about";
 const agents=[
@@ -28,6 +28,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [skipInstall,setSkipInstall] = useState(false);
   const [timerOn,setTimerOn] = useState(true);
   const [notice,setNotice] = useState("");
+  const [status,setStatus] = useState("");
   const [liveProviders,setLiveProviders] = useState<ProviderOption[]>([]);
   const [modelsLoading,setModelsLoading] = useState(true);
   const [modelSearch,setModelSearch] = useState("");
@@ -63,26 +64,45 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   async function send() {
     const value = task.trim();
     if (!value || busy) return;
-    setTask(""); setError(""); setMessages(m=>[...m,{role:"user",content:value}]); setBusy(true);
+    setTask(""); setError(""); setStatus("Thinking..."); setMessages(m=>[...m,{role:"user",content:value,id:crypto.randomUUID()}]); setBusy(true);
     try {
       const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider,model})});
       if (!res.ok || !res.body) throw new Error((await res.json().catch(()=>({}))).error || "Request failed");
       const reader = res.body.getReader(), decoder = new TextDecoder();
       let assistant = "";
-      setMessages(m=>[...m,{role:"assistant",content:""}]);
-      while (true) {
-        const {value:chunk,done}=await reader.read(); if(done) break;
-        const text=decoder.decode(chunk,{stream:true});
-        for (const line of text.split("\n")) {
-          if (!line.startsWith("data: ")) continue;
-          const data=line.slice(6); if(data==="[DONE]") continue;
-          const event=JSON.parse(data);
-          if(event.type==="conversation") setConversationId(event.id);
-          if(event.type==="delta"){ assistant += event.text; setMessages(m=>{const copy=[...m]; copy[copy.length-1]={role:"assistant",content:assistant}; return copy;}); }
-          if(event.type==="message"){ assistant = event.text || assistant; setMessages(m=>{const copy=[...m]; copy[copy.length-1]={role:"assistant",content:assistant}; return copy;}); }
-          if(event.type==="specialist_start"){ setMessages(m=>{const copy=[...m]; const current=copy[copy.length-1]; if(current?.role==="assistant" && !current.content) copy[copy.length-1]={role:"assistant",content:"Lumia "+event.name+" is working..."}; return copy;}); }
-          if(event.type==="error") setError(event.error);
+      const assistantId = crypto.randomUUID();
+      setMessages(m=>[...m,{role:"assistant",content:"",id:assistantId}]);
+      let buffer = "";
+      const handleEvent = (event:any) => {
+        if(event.type==="conversation") setConversationId(event.id);
+        if(event.type==="thinking") setStatus(event.detail || "Thinking...");
+        if(event.type==="specialist_start") setStatus((event.name || "Agent").replace(/[-_]/g," ").replace(/\\b\\w/g,(c:string)=>c.toUpperCase()) + "...");
+        if(event.type==="tool_start") {
+          const labels:Record<string,string>={list_files:"Analysing files...",read_file:"Reading files...",search_code:"Analysing code...",write_file:"Building...",run_command:"Running command...",git_status:"Checking project..."};
+          setStatus(labels[event.tool] || "Working...");
         }
+        if(event.type==="tool_result") setStatus("Working...");
+        if(event.type==="delta"){ assistant += event.text || ""; setMessages(m=>m.map(x=>x.id===assistantId?{...x,content:assistant}:x)); }
+        if(event.type==="message"){ assistant = event.text || assistant; setMessages(m=>m.map(x=>x.id===assistantId?{...x,content:assistant}:x)); }
+        if(event.type==="error") { setError(event.error); setStatus(""); }
+        if(event.type==="complete") setStatus("");
+      };
+      while (true) {
+        const {value:chunk,done}=await reader.read();
+        buffer += decoder.decode(chunk || new Uint8Array(),{stream:!done});
+        const lines=buffer.split("\n");
+        buffer=lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data=line.slice(6).trim(); if(!data || data==="[DONE]") continue;
+          try { handleEvent(JSON.parse(data)); }
+          catch { setError("The server returned an invalid response. Please retry."); }
+        }
+        if(done) break;
+      }
+      if(buffer.startsWith("data: ")) {
+        const data=buffer.slice(6).trim();
+        if(data && data!=="[DONE]") { try { handleEvent(JSON.parse(data)); } catch {} }
       }
     } catch(e) { setError(e instanceof Error?e.message:"Something went wrong"); }
     finally { setBusy(false); }
@@ -127,19 +147,17 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       <div className="top-left"><button className="icon-btn" onClick={()=>setMenu(menu==="main"?"none":"main")} aria-label="Open menu"><Menu size={18}/></button><button className="selector" onClick={()=>setMenu(menu==="lumia"?"none":"lumia")}><Bot size={15}/><span>lumia</span><ChevronDown size={13}/></button><span className="slash">/</span><button className="selector" onClick={()=>setMenu(menu==="agent"?"none":"agent")}><span>{agent}</span><ChevronDown size={13}/></button></div>
       <div className="top-right">{accountControl}<button className="dots" onClick={()=>setMenu(menu==="main"?"none":"main")}>•••</button></div>{menu==="main"&&<div className="menu-popover main-menu"><div className="menu-title">Lumia</div>{mainMenu.map(item=><button className="menu-item menu-action" key={item.id} onClick={()=>handleMainAction(item.id)}>{item.icon}<span>{item.label}</span>{item.id==="deploy"&&<span className="menu-shortcut">↗</span>}</button>)}</div>}{menu==="lumia"&&popup("Workspace",["lumia"],()=>{})}{menu==="agent"&&popup("Agent",agents,v=>setAgent(v))}
     </header>
-    <section className="hero">
-      <div className="robot-glow"><div className="robot"><Bot size={54}/></div></div>
-      <h1>Lumia AI Agent</h1>
-      <p>Multi-agent AI coding platform powered by <a href="#">BeeLimited</a> and <a href="#">RwaCodex</a>.</p>
-    </section>
-    {messages.length>0 && <section className="chat-feed">{messages.map((m,i)=><div className={"message "+m.role} key={i}><div className="message-role">{m.role==="user"?"You":"Lumia"}</div><div className="message-content">{m.content || (busy && <Loader2 className="spin" size={16}/>)}</div></div>)}</section>}
-    {error && <div className="error-banner">{error}</div>}{notice && <div className="error-banner menu-notice">{notice}</div>}
-    <section className="composer">
-      <textarea value={task} onChange={e=>setTask(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Describe what you want the AI agent to do..." rows={4}/>
-      <div className="composer-footer">
-        <div className="composer-left"><button className="pill" onClick={()=>setMenu(menu==="provider"?"none":"provider")}>{providerNames[provider]} <ChevronDown size={12}/></button><button className="pill" onClick={()=>setMenu(menu==="model"?"none":"model")}>{selectedModel?.label || (modelsLoading?"Loading...":"Select model")} <ChevronDown size={12}/></button><button className="pill muted" onClick={()=>setSkipInstall(v=>!v)}>Skip Install {skipInstall?"✓":""}{!skipInstall&&<X size={12}/>}</button><button className="pill muted" onClick={()=>setTimerOn(v=>!v)}>{timerOn?"10m":"Timer off"} {timerOn&&<X size={12}/>}</button></div>
-        <div className="composer-actions"><button className="icon-btn" onClick={()=>setMenu(menu==="settings"?"none":"settings")}><Settings size={17}/></button><button className="send-btn" onClick={send} disabled={busy||!task.trim()||!model} aria-label="Send"><Send size={17}/></button></div>
-      </div>
+    <section className="chat-shell">
+      {messages.length===0 && <div className="empty-state"><div className="empty-mark"><Bot size={28}/></div><h1>Lumia AI Agent</h1><p>Multi-agent AI coding platform powered by <span>BeeLimited</span> and <span>RwaCodex</span>.</p></div>}
+      {messages.length>0 && <section className="chat-feed">{messages.map(m=><div className={"message-row "+m.role} key={m.id}>
+        {m.role==="assistant" && <div className="message-avatar"><Bot size={17}/></div>}
+        <div className="message-stack"><div className="message-role">{m.role==="user"?"You":"Lumia"}</div><div className="message-content">{m.content || (busy && <span className="thinking-dots"><i></i><i></i><i></i></span>)}</div>{m.role==="assistant" && m.content && <div className="message-tools"><button title="Copy"><Copy size={14}/></button><button title="Like"><ThumbsUp size={14}/></button><button title="Dislike"><ThumbsDown size={14}/></button><button title="Retry"><RotateCcw size={14}/></button></div>}</div>
+      </div>)}</section>}
+      {status && <div className="agent-status"><span className="status-dot"></span><span>{status}</span><span className="status-pulse">•••</span></div>}
+      {error && <div className="error-banner">{error}</div>}
+      <section className="composer">
+        <button className="composer-icon" aria-label="Attach file"><Paperclip size={18}/></button><textarea value={task} onChange={e=>setTask(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Message Lumia AI Agent..." rows={1}/><button className="composer-icon" aria-label="Voice input"><Mic size={18}/></button><button className="send-btn" onClick={send} disabled={busy||!task.trim()||!model} aria-label="Send"><Send size={17}/></button>
+      </section>
       {menu==="provider"&&<div className="menu-popover"><div className="menu-title">Select provider</div>{providerIds.map(id=><button className="menu-item" key={id} onClick={()=>{setProvider(id);setModel("");setModelSearch("");setMenu("none");}}>{providerNames[id]}{liveProviders.find(p=>p.id===id)?.configured===false?" · API key missing":""}</button>)}</div>}
       {menu==="model"&&<div className="menu-popover model-popover" style={{maxHeight:360,overflowY:"auto",minWidth:260}}>
         <div className="menu-title">{providerNames[provider]} models <button className="menu-item" style={{display:"inline-block",float:"right",padding:"2px 6px"}} onClick={()=>setModelRefresh(v=>v+1)}>↻</button></div>
@@ -147,6 +165,8 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
         {modelsLoading?<div className="menu-note">Loading models...</div>:providerEntry?.error?<div className="menu-note">{providerEntry.error}</div>:providerEntry?.configured===false?<div className="menu-note">{providerNames[provider]} API key is not configured on the server.</div>:models.length===0?<div className="menu-note">Provider is configured but returned no models. Check the API key permissions and provider endpoint.</div>:models.filter(m=>(m.label+" "+m.id).toLowerCase().includes(modelSearch.toLowerCase())).map(m=><button className="menu-item" key={m.id} onClick={()=>{setModel(m.id);setMenu("none");setModelSearch("");}}>{m.label}{m.label!==m.id?<small style={{display:"block",opacity:.6}}>{m.id}</small>:null}</button>)}
       </div>}
       {menu==="settings"&&<div className="menu-popover settings-popover"><div className="menu-title">Lumia settings</div><button className="menu-item" onClick={()=>{setSkipInstall(false);setTimerOn(true);setMenu("none")}}>Reset controls</button><div className="menu-note">Agent: {agent==="hacking-lab"?"Lumia Hacking Lab Agent":"Lumia AI Agent"} · Provider: {providerNames[provider]} · Model: {selectedModel?.label || "None"}</div></div>}
+      </section>
     </section>
+    {notice && <div className="toast-notice">{notice}</div>}
   </main>;
 }
