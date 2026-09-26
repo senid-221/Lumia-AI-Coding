@@ -279,7 +279,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
               </>}
             </section>
           </div>
-        </div>
+        </div>}
       </section>
 
       {notice && <div className="toast-notice">{notice}</div>}
