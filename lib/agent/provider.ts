@@ -321,7 +321,7 @@ export async function runModelProvider(
   projectId?:string
 ):Promise<AgentRunResult> {
   const selectedProvider=provider;
-  const selectedModel=modelIdForLabel(provider, model || process.env.OPENAI_MODEL || "gpt-5.5");
+  const selectedModel=modelIdForLabel(provider, model);
 
   if(selectedProvider==="openai") {
     if(!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured on the server.");
