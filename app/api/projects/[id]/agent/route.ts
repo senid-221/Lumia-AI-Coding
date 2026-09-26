@@ -33,7 +33,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   if(!resumeExecutionId){
     const queued=await enqueueAgentJob({executionId:"",projectId:id,conversationId:conversation.id,prompt});
     if(queued){
-      return NextResponse.json({queued:true,conversationId:conversation.id});
+      await prisma.agentExecution.create({data:{id:queued,projectId:id,conversationId:conversation.id,status:"QUEUED",prompt}});
+      return NextResponse.json({queued:true,executionId:queued,conversationId:conversation.id});
     }
   }
 
