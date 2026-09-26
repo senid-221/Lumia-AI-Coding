@@ -120,7 +120,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     if (!value || busy) return;
     setTask(""); setError(""); setStatus("Thinking..."); setMessages(m=>[...m,{role:"user",content:value,id:crypto.randomUUID()}]); setBusy(true);
     try {
-      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider,model})});
+      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider,model,projectId:activeProjectId})});
       if (!res.ok || !res.body) throw new Error((await res.json().catch(()=>({}))).error || "Request failed");
       const reader = res.body.getReader(), decoder = new TextDecoder();
       let assistant = "";
