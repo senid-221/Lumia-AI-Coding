@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound, Info, Paperclip, Mic, Copy, ThumbsUp, ThumbsDown, RotateCcw, Plus } from "lucide-react";
+import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History, Plug, Rocket, FolderPlus, MessageSquarePlus, BookOpen, UserRound, Info, Paperclip, Mic, Copy, ThumbsUp, ThumbsDown, RotateCcw } from "lucide-react";
 
 type Msg = { role:"user"|"assistant"; content:string; id:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
@@ -76,7 +76,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       const handleEvent = (event:any) => {
         if(event.type==="conversation") setConversationId(event.id);
         if(event.type==="thinking") setStatus(event.detail || "Thinking...");
-        if(event.type==="specialist_start") setStatus((event.name || "Agent").replace(/[-_]/g," ").replace(/\\b\\w/g,(c:string)=>c.toUpperCase()) + "...");
+        if(event.type==="specialist_start") setStatus((event.name || "Agent").replace(/[-_]/g," ").replace(/\b\w/g,(c:string)=>c.toUpperCase()) + "...");
         if(event.type==="tool_start") {
           const labels:Record<string,string>={list_files:"Analysing files...",read_file:"Reading files...",search_code:"Analysing code...",write_file:"Building...",run_command:"Running command...",git_status:"Checking project..."};
           setStatus(labels[event.tool] || "Working...");
