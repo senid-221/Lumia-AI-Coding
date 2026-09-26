@@ -6,7 +6,7 @@ import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History
 type Msg = { role:"user"|"assistant"; content:string; id:string };
 type ConversationSummary = { id:string; title:string|null; updatedAt:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
-type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account"|"about";
+type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"files"|"docs"|"account"|"about";
 const agents=[
   "ai-agent","coding-agent","unit-test","ask","e2e-test","repo-info","web-dev",
   "planner","coder","reviewer","debugger","verifier","hacking-lab"
@@ -36,6 +36,18 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const [modelsLoading,setModelsLoading] = useState(true);
   const [modelSearch,setModelSearch] = useState("");
   const [modelRefresh,setModelRefresh] = useState(0);
+  const [projects,setProjects] = useState<any[]>([]);
+  const [activeProjectId,setActiveProjectId] = useState<string>("");
+  const [executions,setExecutions] = useState<any[]>([]);
+  const [integrations,setIntegrations] = useState<any[]>([]);
+  const [workspacePanel,setWorkspacePanel] = useState<"none"|"activity"|"projects"|"connectors"|"deploy"|"files">("none");
+  const [deploying,setDeploying] = useState(false);
+  const [deployResult,setDeployResult] = useState<any>(null);
+  const [fileEntries,setFileEntries] = useState<any[]>([]);
+  const [selectedFile,setSelectedFile] = useState("");
+  const [fileDraft,setFileDraft] = useState("");
+  const [fileSearch,setFileSearch] = useState("");
+  const [fileSaving,setFileSaving] = useState(false);
   const [settingsTab,setSettingsTab] = useState<"general"|"ai"|"execution"|"privacy">("general");
   const [compactMode,setCompactMode] = useState(false);
   const [autoScroll,setAutoScroll] = useState(true);
@@ -47,6 +59,21 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
   const providerEntry=liveProviders.find(p=>p.id===provider);
   const models=providerEntry?.models || [];
   const selectedModel=models.find(m=>m.id===model);
+
+  async function loadProjects() {
+    const res=await fetch("/api/projects",{cache:"no-store"}); if(!res.ok) return;
+    const data=await res.json(); let list=data.projects||[];
+    if(!list.length){ const created=await fetch("/api/projects",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:"AI Agent"})}); if(created.ok) list=[(await created.json()).project]; }
+    setProjects(list); if(!activeProjectId && list[0]?.id) setActiveProjectId(list[0].id);
+  }
+  async function loadExecutions(id=activeProjectId){ if(!id) return; const r=await fetch("/api/projects/"+id+"/executions?limit=30",{cache:"no-store"}); if(r.ok) setExecutions((await r.json()).executions||[]); }
+  async function loadIntegrations(id=activeProjectId){ if(!id) return; const r=await fetch("/api/projects/"+id+"/integrations",{cache:"no-store"}); if(r.ok){const d=await r.json();setIntegrations(d.integrations||[]);} }
+  async function loadFiles(path="."){ if(!activeProjectId) return; const r=await fetch("/api/projects/"+activeProjectId+"/files?action=list&path="+encodeURIComponent(path),{cache:"no-store"}); if(r.ok) setFileEntries((await r.json()).files||[]); }
+  async function openFile(path:string){ if(!activeProjectId) return; const r=await fetch("/api/projects/"+activeProjectId+"/files?action=read&path="+encodeURIComponent(path),{cache:"no-store"}); if(r.ok){const d=await r.json();setSelectedFile(path);setFileDraft(String(d.content||""));} }
+  async function saveFile(){ if(!activeProjectId||!selectedFile) return; setFileSaving(true); try{const r=await fetch("/api/projects/"+activeProjectId+"/files",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({path:selectedFile,content:fileDraft})}); if(!r.ok) throw new Error((await r.json()).error||"Save failed"); setNotice("File saved."); loadExecutions();}catch(e){setError(e instanceof Error?e.message:"Save failed");}finally{setFileSaving(false);} }
+  async function cancelExecution(id:string){ const r=await fetch("/api/projects/"+activeProjectId+"/executions/"+id+"/cancel",{method:"POST"}); if(!r.ok) setError((await r.json()).error||"Cancel failed"); await loadExecutions(); }
+  async function resumeExecution(id:string){ const r=await fetch("/api/projects/"+activeProjectId+"/executions/"+id+"/resume",{method:"POST"}); if(!r.ok) setError((await r.json()).error||"Resume failed"); else setNotice("Execution queued for resume."); await loadExecutions(); }
+  async function runDeployPreflight(){ if(!activeProjectId) return; setDeploying(true);setDeployResult(null); try{const r=await fetch("/api/projects/"+activeProjectId+"/deploy",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({confirm:true})});const d=await r.json();setDeployResult(d);await loadExecutions();}catch(e){setDeployResult({ready:false,error:e instanceof Error?e.message:"Deployment preflight failed"});}finally{setDeploying(false);} }
 
 
   useEffect(()=>{
@@ -71,6 +98,14 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     document.addEventListener("mousedown",close);
     return()=>document.removeEventListener("mousedown",close);
   },[]);
+  useEffect(()=>{ loadProjects(); },[]);
+  useEffect(()=>{ if(activeProjectId){ loadExecutions(); loadIntegrations(); } },[activeProjectId]);
+  useEffect(()=>{
+    const raw=localStorage.getItem("lumia-settings"); if(!raw) return;
+    try{const saved=JSON.parse(raw); if(typeof saved.compactMode==="boolean")setCompactMode(saved.compactMode); if(typeof saved.autoScroll==="boolean")setAutoScroll(saved.autoScroll); if(typeof saved.enterToSend==="boolean")setEnterToSend(saved.enterToSend); if(typeof saved.showActivity==="boolean")setShowActivity(saved.showActivity); if(typeof saved.confirmCommands==="boolean")setConfirmCommands(saved.confirmCommands); if(typeof saved.skipInstall==="boolean")setSkipInstall(saved.skipInstall); if(typeof saved.timerOn==="boolean")setTimerOn(saved.timerOn); if(typeof saved.provider==="string")setProvider(saved.provider); if(typeof saved.agent==="string")setAgent(saved.agent);}catch{}
+  },[]);
+  useEffect(()=>{ localStorage.setItem("lumia-settings",JSON.stringify({compactMode,autoScroll,enterToSend,showActivity,confirmCommands,skipInstall,timerOn,provider,agent})); },[compactMode,autoScroll,enterToSend,showActivity,confirmCommands,skipInstall,timerOn,provider,agent]);
+  useEffect(()=>{ if(autoScroll) chatEndRef.current?.scrollIntoView({behavior:"smooth",block:"end"}); },[messages,status,autoScroll]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -81,7 +116,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       .catch(()=>{if(!cancelled) setError("Unable to load provider models. Refresh to retry.");})
       .finally(()=>{if(!cancelled) setModelsLoading(false);});
     return()=>{cancelled=true;};
-  },[]);
+  },[modelRefresh]);
 
   useEffect(()=>{
     if(!models.some(m=>m.id===model)) setModel(models[0]?.id || "");
@@ -93,7 +128,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     if (!value || busy) return;
     setTask(""); setError(""); setStatus("Thinking..."); setMessages(m=>[...m,{role:"user",content:value,id:crypto.randomUUID()}]); setBusy(true);
     try {
-      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider,model})});
+      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider,model,projectId:activeProjectId})});
       if (!res.ok || !res.body) throw new Error((await res.json().catch(()=>({}))).error || "Request failed");
       const reader = res.body.getReader(), decoder = new TextDecoder();
       let assistant = "";
@@ -162,6 +197,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     {id:"services",label:"All services",icon:<LayoutGrid size={15}/>},
     {id:"history",label:"History",icon:<History size={15}/>},
     {id:"projects",label:"Projects",icon:<FolderPlus size={15}/>},
+    {id:"files",label:"Files & Editor",icon:<BookOpen size={15}/>},
     {id:"connectors",label:"Connectors",icon:<Plug size={15}/>},
     {id:"deploy",label:"Deploy",icon:<Rocket size={15}/>},
     {id:"docs",label:"Documentation",icon:<BookOpen size={15}/>},
@@ -175,6 +211,11 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     if(action==="new"){setMessages([]);setConversationId(undefined);setTask("");return;}
     if(action==="settings"){setMenu("settings");return;}
     if(action==="history"){loadHistory();return;}
+    if(action==="services"){setWorkspacePanel("activity");loadExecutions();return;}
+    if(action==="projects"){setWorkspacePanel("projects");loadProjects();return;}
+    if(action==="files"){setWorkspacePanel("files");loadFiles(".");return;}
+    if(action==="connectors"){setWorkspacePanel("connectors");loadIntegrations();return;}
+    if(action==="deploy"){setWorkspacePanel("deploy");return;}
     if(action==="about"){window.location.href="/about";return;}
     const notices: Record<string,string> = {
       services:"All Services — AI coding, agents, Hacking Lab, Git, reviews and automation.",
@@ -208,7 +249,15 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
         {menu==="agent"&&popup("Agent",agents,v=>setAgent(v))}
       </header>
 
+      {workspacePanel!=="none" && <section style={{position:"fixed",right:18,top:62,zIndex:30,width:"min(760px,calc(100vw - 36px))",maxHeight:"calc(100vh - 84px)",overflow:"auto",background:"var(--panel,#fff)",border:"1px solid rgba(127,127,127,.2)",borderRadius:14,padding:18,boxShadow:"0 20px 60px rgba(0,0,0,.18)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div><b>{workspacePanel==="activity"?"Activity & Executions":workspacePanel==="projects"?"Projects":workspacePanel==="connectors"?"Connectors":workspacePanel==="deploy"?"Deployment": "Files & Editor"}</b><div style={{fontSize:12,opacity:.65}}>{projects.find(p=>p.id===activeProjectId)?.name||"AI Agent"}</div></div><button className="settings-close" onClick={()=>setWorkspacePanel("none")}><X size={16}/></button></div>
+        {workspacePanel==="activity"&&<div style={{display:"grid",gap:8}}>{executions.length===0?<div className="menu-note">No executions yet.</div>:executions.map(e=><div key={e.id} style={{padding:10,border:"1px solid rgba(127,127,127,.15)",borderRadius:10}}><div style={{display:"flex",justifyContent:"space-between",gap:8}}><b>{e.status}</b><small>{new Date(e.startedAt).toLocaleString()}</small></div><div style={{fontSize:13,margin:"5px 0"}}>{e.prompt}</div><small>Tools: {e.toolCount} · Events: {e._count?.events||0}</small><div style={{marginTop:7,display:"flex",gap:6}}>{["RUNNING","CANCEL_REQUESTED"].includes(e.status)&&<button className="settings-action" onClick={()=>cancelExecution(e.id)}>Cancel</button>}{["CANCELLED","FAILED"].includes(e.status)&&<button className="settings-action" onClick={()=>resumeExecution(e.id)}>Resume</button>}</div></div>)}</div>}
+        {workspacePanel==="projects"&&<div style={{display:"grid",gap:8}}>{projects.map(p=><div key={p.id} style={{display:"flex",gap:8,alignItems:"center",padding:9,border:"1px solid rgba(127,127,127,.15)",borderRadius:10}}><button className="menu-item" style={{flex:1,textAlign:"left"}} onClick={()=>{setActiveProjectId(p.id);setWorkspacePanel("activity");}}>{p.name}<small style={{display:"block",opacity:.6}}>{p.slug}</small></button><button className="settings-action" onClick={async()=>{const name=window.prompt("Project name",p.name);if(!name)return;await fetch("/api/projects/"+p.id,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({name})});loadProjects();}}>Rename</button><button className="danger-action" onClick={async()=>{if(!window.confirm("Delete this project?"))return;await fetch("/api/projects/"+p.id,{method:"DELETE"});if(activeProjectId===p.id)setActiveProjectId("");loadProjects();}}>Delete</button></div>)}<button className="settings-action" onClick={async()=>{const name=window.prompt("New project name","New Project");if(name){await fetch("/api/projects",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name})});loadProjects();}}}>+ New project</button></div>}
+        {workspacePanel==="connectors"&&<div style={{display:"grid",gap:10}}>{["github","google"].map(providerName=><div key={providerName} style={{padding:12,border:"1px solid rgba(127,127,127,.15)",borderRadius:10}}><b>{providerName==="github"?"GitHub":"Google"}</b><div style={{fontSize:12,opacity:.65,margin:"4px 0 8px"}}>Connection state is stored per account. OAuth authorization is still required before private data access.</div><button className="settings-action" onClick={async()=>{if(!activeProjectId)return;await fetch("/api/projects/"+activeProjectId+"/integrations",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({provider:providerName,name:providerName==="github"?"GitHub":"Google"})});loadIntegrations();}}>Register connector</button></div>)}{integrations.length>0&&<div><b>Configured</b>{integrations.map(i=><div key={i.id} style={{display:"flex",justifyContent:"space-between",padding:8}}><span>{i.name} · {i.status}</span><button className="danger-action" onClick={async()=>{await fetch("/api/projects/"+activeProjectId+"/integrations?integrationId="+i.id,{method:"DELETE"});loadIntegrations();}}>Disconnect</button></div>)}</div>}</div>}
+        {workspacePanel==="deploy"&&<div style={{display:"grid",gap:10}}><p style={{fontSize:13,opacity:.75}}>Lumia runs a deployment preflight: Git status and production build. It does not publish anywhere without a deployment provider connection.</p><button className="settings-action" disabled={deploying} onClick={runDeployPreflight}>{deploying?"Running preflight...":"Run deployment preflight"}</button>{deployResult&&<pre style={{whiteSpace:"pre-wrap",fontSize:12,padding:10,borderRadius:8,background:"rgba(127,127,127,.08)"}}>{JSON.stringify(deployResult,null,2)}</pre>}</div>}
+        {workspacePanel==="files"&&<div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:12,minHeight:400}}><div><input placeholder="Filter files..." value={fileSearch} onChange={e=>setFileSearch(e.target.value)} style={{width:"100%",padding:8,marginBottom:8}}/>{fileEntries.filter((f:any)=>String(f.path||f.name||"").toLowerCase().includes(fileSearch.toLowerCase())).map((f:any)=><button key={f.path||f.name} className="menu-item" style={{display:"block",width:"100%",textAlign:"left"}} onClick={()=>openFile(f.path||f.name)}>{f.path||f.name}</button>)}</div><div><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><b>{selectedFile||"Select a file"}</b>{selectedFile&&<button className="settings-action" disabled={fileSaving} onClick={saveFile}>{fileSaving?"Saving...":"Save"}</button>}</div><textarea value={fileDraft} onChange={e=>setFileDraft(e.target.value)} style={{width:"100%",minHeight:390,fontFamily:"monospace",fontSize:12,padding:10}} placeholder="Select a project file to edit." /></div></div>}
+      </section>}\n
       <section className="chat-shell">
+      {detectedLanguage && detectedLanguage.code!=="unknown" && <div style={{fontSize:11,opacity:.55,textAlign:"center",padding:"4px 0"}}>Language: {detectedLanguage.name} · {Math.round(detectedLanguage.confidence*100)}%</div>}
         {messages.length===0 && (
           <div className="empty-state">
             <div className="empty-mark"><Bot size={28}/></div>

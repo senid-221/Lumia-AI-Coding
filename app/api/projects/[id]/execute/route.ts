@@ -17,7 +17,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}) {
   if(!command)return NextResponse.json({error:"command is required"},{status:400});
   const execution=await prisma.agentExecution.create({data:{projectId:id,status:"RUNNING",prompt:[command,...args].join(" ")}});
   try {
-    const result=await runProjectCommand(id,command,args);
+    const result=await runProjectCommand(id,command,args,execution.id);
     const status=result.code===0&&!result.timedOut?"SUCCEEDED":"FAILED";
     await prisma.agentExecution.update({where:{id:execution.id},data:{status,result:JSON.stringify(result),finishedAt:new Date(),toolCount:1}});
     return NextResponse.json({executionId:execution.id,result});

@@ -6,6 +6,7 @@ import { TOOL_DEFINITIONS } from "./tools";
 import { SPECIALISTS, specialistPrompt, type SpecialistRole } from "./specialists";
 import { loadProjectRules } from "./rule-loader";
 import { getProjectContextSnapshot, formatProjectContext } from "./project-context";
+import { detectLanguage, languageInstruction } from "./language-detector";
 
 type ContextMessage = { role: "user" | "assistant"; content: string };
 export type ProviderId = ModelProvider;
@@ -16,6 +17,8 @@ export async function runAutonomousCodingTask(
   provider: ProviderId = "openai", model?: string
 ) {
   const specialistTurns = Math.max(1, Math.min(Number(process.env.LUMIA_SPECIALIST_TURNS || 4), 8));
+  const detectedLanguage = detectLanguage(prompt);
+  const languageRule = languageInstruction(detectedLanguage);
   const projectContext = await getProjectContext(projectId, conversationId);
   onEvent({ type: "project_context_start" });
   const inspectedContext = await getProjectContextSnapshot(projectId);
@@ -25,6 +28,7 @@ export async function runAutonomousCodingTask(
   const contextSummary = [
     projectContext.project ? `Project: ${projectContext.project.name} (${projectContext.project.slug})` : "",
     formatProjectContext(inspectedContext),
+    "Language behavior: " + languageRule,
     projectContext.memories.length ? "Project memory:\n" + projectContext.memories.map(m => `[${m.kind}] ${m.key}: ${m.content}`).join("\n") : "",
     projectContext.userMemories?.length ? "User memory:\n" + projectContext.userMemories.map(m => `[${m.kind}] ${m.key}: ${m.content}`).join("\n") : "",
     projectContext.executions.length ? "Recent executions:\n" + projectContext.executions.map(e => `[${e.status}] ${e.prompt.slice(0, 240)}${e.error ? ` -> ${e.error}` : ""}`).join("\n") : ""
