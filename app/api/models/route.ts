@@ -149,14 +149,14 @@ export async function GET() {
     tasks.push(
       (async () => {
         try {
-          const data = await fetchJson("https://api.x.ai/v1/models", {
+          const data = await fetchJson("https://api.x.ai/v1/language-models", {
             Authorization: `Bearer ${process.env.XAI_API_KEY!}`,
           });
           providers.xai.models = sortModels(
-            (data.data || []).map((model: any) => ({
+            (data.models || []).map((model: any) => ({
               id: model.id,
               label: model.id,
-            })),
+            })).filter((model: Model) => Boolean(model.id)),
           );
         } catch (error) {
           providers.xai.error = error instanceof Error ? error.message : "Model listing failed";
@@ -173,11 +173,14 @@ export async function GET() {
           const data = await fetchJson(`${baseUrl}/models`, {
             Authorization: `Bearer ${process.env.GROQ_API_KEY!}`,
           });
+          const blocked = /whisper|distil-whisper|tts|speech|audio|image|guard|safety|moderation|embedding/i;
           providers.groq.models = sortModels(
-            (data.data || []).map((model: any) => ({
-              id: model.id,
-              label: model.id,
-            })),
+            (data.data || [])
+              .filter((model: any) => model.active !== false && !blocked.test(String(model.id || "")))
+              .map((model: any) => ({
+                id: model.id,
+                label: model.id,
+              })),
           );
         } catch (error) {
           providers.groq.error = error instanceof Error ? error.message : "Model listing failed";
