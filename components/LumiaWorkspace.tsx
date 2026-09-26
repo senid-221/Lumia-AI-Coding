@@ -47,6 +47,23 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
 
 
   useEffect(()=>{
+    let cancelled=false;
+    fetch("/api/chat",{cache:"no-store"})
+      .then(async r=>{if(!r.ok) throw new Error("Unable to restore conversation"); return r.json();})
+      .then(data=>{
+        if(cancelled || !data?.conversation) return;
+        setConversationId(data.conversation.id);
+        setMessages((data.messages || []).map((m:any)=>({
+          role:m.role==="user"?"user":"assistant",
+          content:String(m.content || ""),
+          id:String(m.id)
+        })));
+      })
+      .catch(()=>{});
+    return()=>{cancelled=true;};
+  },[]);
+
+  useEffect(()=>{
     const close=(e:MouseEvent)=>{ if(rootRef.current && !rootRef.current.contains(e.target as Node)) setMenu("none"); };
     document.addEventListener("mousedown",close);
     return()=>document.removeEventListener("mousedown",close);
@@ -97,7 +114,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       while (true) {
         const {value:chunk,done}=await reader.read();
         buffer += decoder.decode(chunk || new Uint8Array(),{stream:!done});
-        const lines=buffer.split("\\n");
+        const lines=buffer.split("\n");
         buffer=lines.pop() || "";
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
