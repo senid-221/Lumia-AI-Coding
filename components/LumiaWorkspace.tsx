@@ -81,11 +81,36 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
       .catch(()=>{if(!cancelled) setError("Unable to load provider models. Refresh to retry.");})
       .finally(()=>{if(!cancelled) setModelsLoading(false);});
     return()=>{cancelled=true;};
-  },[]);
+  },[modelRefresh]);
 
   useEffect(()=>{
     if(!models.some(m=>m.id===model)) setModel(models[0]?.id || "");
   },[provider,liveProviders,model]);
+
+  useEffect(()=>{
+    const raw=localStorage.getItem("lumia-settings");
+    if(!raw) return;
+    try {
+      const saved=JSON.parse(raw);
+      if(typeof saved.compactMode==="boolean") setCompactMode(saved.compactMode);
+      if(typeof saved.autoScroll==="boolean") setAutoScroll(saved.autoScroll);
+      if(typeof saved.enterToSend==="boolean") setEnterToSend(saved.enterToSend);
+      if(typeof saved.showActivity==="boolean") setShowActivity(saved.showActivity);
+      if(typeof saved.confirmCommands==="boolean") setConfirmCommands(saved.confirmCommands);
+      if(typeof saved.skipInstall==="boolean") setSkipInstall(saved.skipInstall);
+      if(typeof saved.timerOn==="boolean") setTimerOn(saved.timerOn);
+      if(typeof saved.provider==="string") setProvider(saved.provider);
+      if(typeof saved.agent==="string") setAgent(saved.agent);
+    } catch {}
+  },[]);
+
+  useEffect(()=>{
+    localStorage.setItem("lumia-settings",JSON.stringify({compactMode,autoScroll,enterToSend,showActivity,confirmCommands,skipInstall,timerOn,provider,agent}));
+  },[compactMode,autoScroll,enterToSend,showActivity,confirmCommands,skipInstall,timerOn,provider,agent]);
+
+  useEffect(()=>{
+    if(autoScroll) chatEndRef.current?.scrollIntoView({behavior:"smooth",block:"end"});
+  },[messages,status,autoScroll]);
 
 
   async function send() {
