@@ -41,6 +41,7 @@ export async function runConversationalProvider(
   if (provider === "anthropic") {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error("ANTHROPIC_API_KEY is not configured on the server.");
+    onEvent?.({ type: "thinking", detail: "Understanding your request..." });
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -50,21 +51,39 @@ export async function runConversationalProvider(
       },
       body: JSON.stringify({
         model,
-        max_tokens: 1024,
+        max_tokens: 2048,
+        stream: true,
         system: systemPrompt,
         messages: [...history.slice(-12), { role: "user", content: input }]
       })
     });
-    const data: any = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    if (!response.ok || !response.body) {
+      const data: any = await response.json().catch(() => ({}));
       throw new Error("Anthropic API error " + response.status + ": " + (data?.error?.message || "Request failed"));
     }
-    const text = (data.content || [])
-      .filter((item: any) => item.type === "text")
-      .map((item: any) => item.text)
-      .join("\n")
-      .trim();
-    return { text: text || "Hello! How can I help you today?" };
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let text = "";
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        try {
+          const event = JSON.parse(line.slice(5).trim());
+          if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+            const delta = String(event.delta.text || "");
+            text += delta;
+            onEvent?.({ type: "delta", text: delta });
+          }
+        } catch {}
+      }
+      if (done) break;
+    }
+    return { text: text.trim() || "I could not produce a response." };
   }
 
   if (provider === "openai") {
@@ -95,14 +114,29 @@ export async function runConversationalProvider(
     return { text: text.trim() || "I could not produce a response." };
   }
 
-  const response = await client(provider).chat.completions.create({
+  onEvent?.({ type: "thinking", detail: "Understanding your request..." });
+  const stream = await client(provider).chat.completions.create({
     model,
+    stream: true,
     messages: [
       { role: "system", content: systemPrompt },
       ...history.slice(-12),
       { role: "user", content: input }
     ]
   });
+  let text = "";
+  for await (const chunk of stream as any) {
+    const delta = String(chunk.choices?.[0]?.delta?.content || "");
+    if (delta) {
+      text += delta;
+      onEvent?.({ type: "delta", text: delta });
+    }
+  }
+
+  return {
+    text: text.trim() || "I could not produce a response."
+  };
+
 
   return {
     text: String(response.choices?.[0]?.message?.content || "Hello! How can I help you today?")
