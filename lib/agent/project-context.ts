@@ -85,6 +85,49 @@ async function persistProjectSnapshot(context: ProjectContextSnapshot) {
   });
 }
 
+export async function loadPersistedProjectSnapshot(projectId: string): Promise<ProjectContextSnapshot | null> {
+  const row = await prisma.projectMemory.findUnique({
+    where: { projectId_key: { projectId, key: SNAPSHOT_MEMORY_KEY } },
+    select: { content: true }
+  });
+  if (!row?.content) return null;
+
+  try {
+    const persisted = JSON.parse(row.content);
+    if (
+      persisted?.version !== SNAPSHOT_VERSION ||
+      persisted?.context?.projectId !== projectId ||
+      typeof persisted?.fingerprint !== "string"
+    ) {
+      return null;
+    }
+
+    const context = persisted.context as ProjectContextSnapshot;
+    if (
+      !context.inspectedAt ||
+      !context.structure ||
+      !context.stack ||
+      !context.manifest ||
+      !context.database ||
+      !context.git ||
+      !context.rules
+    ) {
+      return null;
+    }
+
+    return context;
+  } catch {
+    return null;
+  }
+}
+
+export async function getProjectContextSnapshot(projectId: string): Promise<ProjectContextSnapshot> {
+  const persisted = await loadPersistedProjectSnapshot(projectId);
+  if (persisted) return persisted;
+
+  return inspectProjectContext(projectId);
+}
+
 export async function inspectProjectContext(projectId: string): Promise<ProjectContextSnapshot> {
   const rawFiles = await listProjectFiles(projectId, ".");
   const files = rawFiles.filter(f => !f.endsWith("/")).slice(0, MAX_FILES);
