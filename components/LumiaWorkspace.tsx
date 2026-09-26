@@ -7,7 +7,7 @@ type Msg = { role:"user"|"assistant"; content:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
 type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account";
 const agents=["ai-agent","hacking-lab"];
-const providers=["OpenAI","Zencode"];
+const providers=["OpenAI","Zencoder"];
 const models=["gpt-5.5","Sonnet 4.5","Gemini"];
 
 export default function LumiaWorkspace({ accountControl }: { accountControl: React.ReactNode }) {
@@ -36,7 +36,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
     if (!value || busy) return;
     setTask(""); setError(""); setMessages(m=>[...m,{role:"user",content:value}]); setBusy(true);
     try {
-      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider:provider.toLowerCase(),model})});
+      const res = await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({task:value,conversationId,agent,provider:provider.toLowerCase().replace("zencoder","zencode"),model})});
       if (!res.ok || !res.body) throw new Error((await res.json().catch(()=>({}))).error || "Request failed");
       const reader = res.body.getReader(), decoder = new TextDecoder();
       let assistant = "";
