@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getProjectContext, upsertProjectMemory } from "./memory";
-import { openAIProvider, runOpenAICompatible } from "./provider";
+import { openAIProvider } from "./provider";
 import { runZencoderRuntime } from "@/lib/zencode";
 import { ensureProjectWorkspace } from "./workspace";
 import { TOOL_DEFINITIONS } from "./tools";
