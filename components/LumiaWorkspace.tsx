@@ -6,7 +6,10 @@ import { Send, Settings, X, Menu, ChevronDown, Bot, Loader2, LayoutGrid, History
 type Msg = { role:"user"|"assistant"; content:string };
 type MenuState = "none"|"main"|"lumia"|"agent"|"provider"|"model"|"settings";
 type MainAction = "new"|"services"|"history"|"settings"|"connectors"|"deploy"|"projects"|"docs"|"account";
-const agents=["ai-agent","hacking-lab"];
+const agents=[
+  "ai-agent","coding-agent","unit-test","ask","e2e-test","repo-info","web-dev",
+  "planner","coder","reviewer","debugger","verifier","hacking-lab"
+];
 const providerModels: Record<string,string[]> = {
   Anthropic:["Haiku 4.5","Sonnet 4.6","Opus 4.6","Opus 4.7"],
   OpenAI:["GPT-5.3 Codex","GPT-5.4","GPT-5.4-mini","GPT-5.5"],
@@ -101,7 +104,7 @@ export default function LumiaWorkspace({ accountControl }: { accountControl: Rea
 
   return <main className="workspace" ref={rootRef}>
     <header className="topbar">
-      <div className="top-left"><button className="icon-btn" onClick={()=>setMenu(menu==="main"?"none":"main")} aria-label="Open menu"><Menu size={18}/></button><button className="selector" onClick={()=>setMenu(menu==="lumia"?"none":"lumia")}><Bot size={15}/><span>lumia</span><ChevronDown size={13}/></button><span className="slash">/</span><button className="selector" onClick={()=>setMenu(menu==="agent"?"none":"agent")}><span>ai-agent</span><ChevronDown size={13}/></button></div>
+      <div className="top-left"><button className="icon-btn" onClick={()=>setMenu(menu==="main"?"none":"main")} aria-label="Open menu"><Menu size={18}/></button><button className="selector" onClick={()=>setMenu(menu==="lumia"?"none":"lumia")}><Bot size={15}/><span>lumia</span><ChevronDown size={13}/></button><span className="slash">/</span><button className="selector" onClick={()=>setMenu(menu==="agent"?"none":"agent")}><span>{agent}</span><ChevronDown size={13}/></button></div>
       <div className="top-right">{accountControl}<button className="dots" onClick={()=>setMenu(menu==="main"?"none":"main")}>•••</button></div>{menu==="main"&&<div className="menu-popover main-menu"><div className="menu-title">Lumia</div>{mainMenu.map(item=><button className="menu-item menu-action" key={item.id} onClick={()=>handleMainAction(item.id)}>{item.icon}<span>{item.label}</span>{item.id==="deploy"&&<span className="menu-shortcut">↗</span>}</button>)}</div>}{menu==="lumia"&&popup("Workspace",["lumia"],()=>{})}{menu==="agent"&&popup("Agent",agents,v=>setAgent(v))}
     </header>
     <section className="hero">
