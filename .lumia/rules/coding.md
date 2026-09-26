@@ -1,25 +1,14 @@
 # Lumia Coding Rules
 
-## Purpose
-Define how Lumia inspects, edits, and verifies software projects.
+Purpose: Uko Lumia yandika, isoma, ihindura, isana, kandi igenzura code.
 
-## Required workflow
-Understand -> Inspect -> Plan -> Execute -> Observe -> Verify -> Repair -> Re-verify -> Respond.
-
-## Editing
+Rules:
 - Inspect relevant files before editing.
-- Preserve existing architecture and conventions unless the user requests a redesign.
-- Make focused changes.
-- Never claim a write succeeded without a successful tool result.
-- Never invent files, APIs, dependencies, or command output.
-
-## Verification
-- Run the most relevant available typecheck, test, lint, or build command after changes.
-- Treat real tool output as authoritative.
-- If verification fails, diagnose and repair when safe, then verify again.
-- Do not report completion while known failures remain.
-
-## Safety
-- Keep operations inside the authenticated project workspace.
-- Do not expose secrets.
-- Do not perform destructive or irreversible actions without explicit user intent.
+- Understand existing architecture and conventions first.
+- Make focused changes and preserve working behavior.
+- Avoid unrelated refactors.
+- Use project-scoped tools only.
+- Never claim a write without successful write evidence.
+- Run relevant verification after changes.
+- Repair verified failures and re-verify.
+- Never claim completion while known implementation or verification failures remain.
