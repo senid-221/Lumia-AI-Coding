@@ -7,8 +7,7 @@ Lumia AI Agent is a Next.js coding-agent workspace with the reference Lumia UI, 
 - Web service: Next.js application (npm run dev / npm start)
 - Database: PostgreSQL through Prisma
 - AI execution: bounded multi-agent specialist orchestration with provider routing
-- Providers: Anthropic, OpenAI, Google Gemini, xAI, and Zencoder Auto/Auto+
-- Zencoder mode: Lumia routes Auto/Auto+ across configured provider APIs; it does not depend on an undocumented `api.z.ai` REST endpoint or an assumed `zen` executable
+- Providers: Anthropic, OpenAI, Google Gemini, xAI
 - Durable jobs: Upstash Redis when configured
 - Worker: npm run worker
 - Git: authenticated read operations plus explicit branch/commit operations
@@ -77,6 +76,5 @@ Keep OPENAI_API_KEY on the worker when using the durable queue architecture. The
 | OpenAI | GPT-5.3 Codex, GPT-5.4, GPT-5.4-mini, GPT-5.5 |
 | Google | Gemini Pro 3.1, Gemini Flash 3.0 |
 | xAI | Grok Code Fast 1 |
-| Zencoder | Auto, Auto+ |
 
-Configure the provider API keys you want to use. Zencoder Auto/Auto+ selects among configured providers; it is intentionally implemented as Lumia routing rather than guessing an undocumented Zencoder REST endpoint.
+Configure the provider API keys you want to use.
