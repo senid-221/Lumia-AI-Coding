@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { runAutonomousCodingTask, type ProviderId } from "@/lib/agent/orchestrator";
-import { isSimpleConversation, runConversationalProvider } from "@/lib/agent/conversation";
+import { runConversationalProvider } from "@/lib/agent/conversation";
 import { classifyRequest, type LumiaAgent } from "@/lib/agent/policy";
 import { rememberExplicitUserContext } from "@/lib/agent/memory";
 import { NextResponse } from "next/server";
@@ -134,7 +134,8 @@ export async function POST(req:Request){
           event=>send(event),
           undefined,
           provider,
-          requestedModel||undefined
+          requestedModel||undefined,
+          agent!=="ai-agent" && agent!=="hacking-lab" ? agent : undefined
         );
         await prisma.message.create({data:{conversationId:conversation!.id,role:"ASSISTANT",content:result.text}});
         await prisma.conversation.update({where:{id:conversation!.id},data:{updatedAt:new Date()}});
