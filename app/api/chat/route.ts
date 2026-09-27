@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { runAutonomousCodingTask, type ProviderId } from "@/lib/agent/orchestrator";
 import { isSimpleConversation, runConversationalProvider } from "@/lib/agent/conversation";
-import { looksLikeConversation, looksLikeCodingTask } from "@/lib/agent/policy";
+import { classifyRequest, type LumiaAgent } from "@/lib/agent/policy";
 import { rememberExplicitUserContext } from "@/lib/agent/memory";
 import { NextResponse } from "next/server";
 import { detectLanguage, languageInstruction } from "@/lib/agent/language-detector";
@@ -11,7 +11,11 @@ export const runtime = "nodejs";
 
 const sse=(data:unknown)=>"data: "+JSON.stringify(data)+"\n\n";
 
-function normalizeAgent(value:unknown) { return String(value||"ai-agent").toLowerCase()==="hacking-lab" ? "hacking-lab" : "ai-agent"; }
+function normalizeAgent(value:unknown):LumiaAgent {
+  const v=String(value||"ai-agent").toLowerCase();
+  const allowed: LumiaAgent[] = ["ai-agent","hacking-lab","planner","coder","reviewer","debugger","verifier","researcher","security-reviewer","ui-specialist","database-specialist"];
+  return allowed.includes(v as LumiaAgent) ? v as LumiaAgent : "ai-agent";
+}
 
 function normalizeProvider(value:unknown):ProviderId {
   const v=String(value||"openai").toLowerCase().replace(/[^a-z]/g,"");
@@ -65,11 +69,14 @@ export async function POST(req:Request){
   if(provider==="groq" && !process.env.GROQ_API_KEY)
     return NextResponse.json({error:"GROQ_API_KEY is not configured on the server."},{status:500});
 
-  const project=await prisma.project.upsert({
-    where:{userId_slug:{userId:session.user.id,slug:"ai-agent"}},
-    update:{updatedAt:new Date()},
-    create:{userId:session.user.id,name:"AI Agent",slug:"ai-agent"}
-  });
+  const project=requestedProjectId
+    ? await prisma.project.findFirst({where:{id:requestedProjectId,userId:session.user.id}})
+    : await prisma.project.upsert({
+        where:{userId_slug:{userId:session.user.id,slug:"ai-agent"}},
+        update:{updatedAt:new Date()},
+        create:{userId:session.user.id,name:"AI Agent",slug:"ai-agent"}
+      });
+  if (!project) return NextResponse.json({error:"Selected project was not found or is not owned by this account."},{status:404});
 
   let conversation=conversationId
     ? await prisma.conversation.findFirst({where:{id:conversationId,userId:session.user.id,projectId:project.id}})
@@ -97,7 +104,9 @@ export async function POST(req:Request){
       send({type:"language",code:detectedLanguage.code,name:detectedLanguage.name,confidence:detectedLanguage.confidence,mixed:detectedLanguage.mixed});
 
       try{
-        if(agent==="ai-agent" && (isSimpleConversation(task) || (looksLikeConversation(task) && !looksLikeCodingTask(task)))){
+        const mode=classifyRequest(task,agent);
+        send({type:"mode",mode,agent});
+        if(mode==="conversation"){
           const result=await runConversationalProvider(
             provider,
             requestedModel||undefined,
@@ -116,7 +125,7 @@ export async function POST(req:Request){
 
         const languagePrompt=languageInstruction(detectedLanguage);
         const labPrompt=agent==="hacking-lab" ? "You are Lumia Hacking Lab Agent. Educational / Authorized Lab Only. Focus on defensive security, CTFs, simulations, secure code review, vulnerability explanations, and authorized lab targets. Never perform or instruct account takeover, credential theft, OTP interception, SIM swapping, malware deployment, persistence, evasion, destructive actions, or unauthorized access. Task:\n"+task : task;
-        const codingPrompt=labPrompt+"\n\nLanguage behavior:\n"+languagePrompt;
+        const codingPrompt=labPrompt+"\n\nSelected agent: "+agent+"\n\nLanguage behavior:\n"+languagePrompt;
         const result=await runAutonomousCodingTask(
           project.id,
           conversation!.id,
