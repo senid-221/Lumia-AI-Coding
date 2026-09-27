@@ -35,12 +35,25 @@ const ROLE_FILES: Record<SpecialistRole, string> = {
   "database-specialist": ".lumia/agents/database-specialist.md"
 };
 
-async function readRule(projectId: string, relativePath: string) {
+async function readFileIfSafe(file: string) {
   try {
-    const file = safePath(projectId, relativePath);
     const stat = await fs.stat(file);
     if (!stat.isFile() || stat.size > MAX_RULE_BYTES) return "";
     return await fs.readFile(file, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+async function readRule(projectId: string, relativePath: string) {
+  // Platform rules are bundled with Lumia and remain authoritative even when
+  // the user's project workspace has not been populated yet.
+  const platformFile = path.resolve(process.cwd(), relativePath);
+  const platformRule = await readFileIfSafe(platformFile);
+  if (platformRule.trim()) return platformRule;
+
+  try {
+    return await readFileIfSafe(safePath(projectId, relativePath));
   } catch {
     return "";
   }
