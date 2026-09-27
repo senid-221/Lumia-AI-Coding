@@ -46,17 +46,14 @@ async function readFileIfSafe(file: string) {
 }
 
 async function readRule(projectId: string, relativePath: string) {
-  // Platform rules are bundled with Lumia and remain authoritative even when
-  // the user's project workspace has not been populated yet.
-  const platformFile = path.resolve(process.cwd(), relativePath);
-  const platformRule = await readFileIfSafe(platformFile);
-  if (platformRule.trim()) return platformRule;
-
+  // Always load Lumia's bundled rules. If the user's project also has a rule
+  // at the same path, append it so project-specific requirements are preserved.
+  const platformRule = await readFileIfSafe(path.resolve(process.cwd(), relativePath));
+  let projectRule = "";
   try {
-    return await readFileIfSafe(safePath(projectId, relativePath));
-  } catch {
-    return "";
-  }
+    projectRule = await readFileIfSafe(safePath(projectId, relativePath));
+  } catch {}
+  return [platformRule.trim(), projectRule.trim()].filter(Boolean).join("\n\n");
 }
 
 export async function loadProjectRules(projectId: string, role: SpecialistRole) {
