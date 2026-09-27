@@ -69,24 +69,23 @@ export async function runAutonomousCodingTask(
 
     if (selectedRole) {
       const selectedResult = await roleRun(selectedRole, prompt);
+      let selectedVerification = selectedResult;
+
       if (selectedRole !== "verifier") {
-        verification = await roleRun(
+        selectedVerification = await roleRun(
           "verifier",
           prompt + "\nSelected specialist result:\n" + selectedResult +
           "\nVerify the current project using available tools. Run at least one objective verification command when the project supports it. Report the command and its actual result. End with exactly one status line: VERIFICATION_STATUS: PASS or VERIFICATION_STATUS: FAIL."
         );
-        const statusMatch = verification.match(/VERIFICATION_STATUS:\s*(PASS|FAIL)\b/i);
-        verificationPassed = statusMatch?.[1]?.toUpperCase() === "PASS";
-      } else {
-        verification = selectedResult;
-        const statusMatch = verification.match(/VERIFICATION_STATUS:\s*(PASS|FAIL)\b/i);
-        verificationPassed = statusMatch?.[1]?.toUpperCase() === "PASS";
       }
-      const resultStatus = verificationPassed ? "SUCCEEDED" : "FAILED";
+
+      const statusMatch = selectedVerification.match(/VERIFICATION_STATUS:\s*(PASS|FAIL)\b/i);
+      const selectedVerificationPassed = statusMatch?.[1]?.toUpperCase() === "PASS";
+      const resultStatus = selectedVerificationPassed ? "SUCCEEDED" : "FAILED";
       const final = [
         "Step 1: Selected specialist (" + selectedRole + ")\n" + selectedResult,
-        "Step 2: Verify\n" + verification,
-        verificationPassed ? "Result: Verification passed based on explicit evidence." : "Result: Verification did not pass. Lumia will not report this task as completed."
+        "Step 2: Verify\n" + selectedVerification,
+        selectedVerificationPassed ? "Result: Verification passed based on explicit evidence." : "Result: Verification did not pass. Lumia will not report this task as completed."
       ].join("\n\n");
       await prisma.agentExecution.update({ where: { id: execution.id }, data: { status: resultStatus, result: final, toolCount, finishedAt: new Date() } });
       await upsertProjectMemory(projectId, "execution", "last-result", final.slice(-12000));
