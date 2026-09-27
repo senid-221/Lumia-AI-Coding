@@ -14,7 +14,7 @@ export type ProviderId = ModelProvider;
 export async function runAutonomousCodingTask(
   projectId: string, conversationId: string, prompt: string, history: ContextMessage[],
   onEvent: (event: any) => void, existingExecutionId?: string,
-  provider: ProviderId = "openai", model?: string
+  provider: ProviderId = "openai", model?: string, selectedRole?: SpecialistRole
 ) {
   const specialistTurns = Math.max(1, Math.min(Number(process.env.LUMIA_SPECIALIST_TURNS || 4), 8));
   const detectedLanguage = detectLanguage(prompt);
@@ -66,6 +66,32 @@ export async function runAutonomousCodingTask(
     const securityLike = /\\b(security|auth|authentication|authorization|permission|secret|token|vulnerability|secure)\\b/i.test(prompt);
     const uiLike = /\\b(ui|ux|frontend|component|responsive|design|layout|css|tailwind)\\b/i.test(prompt);
     const databaseLike = /\\b(database|db|schema|migration|prisma|sql|query|table|relation)\\b/i.test(prompt);
+
+    if (selectedRole) {
+      const selectedResult = await roleRun(selectedRole, prompt);
+      if (selectedRole !== "verifier") {
+        verification = await roleRun(
+          "verifier",
+          prompt + "\nSelected specialist result:\n" + selectedResult +
+          "\nVerify the current project using available tools. Run at least one objective verification command when the project supports it. Report the command and its actual result. End with exactly one status line: VERIFICATION_STATUS: PASS or VERIFICATION_STATUS: FAIL."
+        );
+        const statusMatch = verification.match(/VERIFICATION_STATUS:\s*(PASS|FAIL)\b/i);
+        verificationPassed = statusMatch?.[1]?.toUpperCase() === "PASS";
+      } else {
+        verification = selectedResult;
+        const statusMatch = verification.match(/VERIFICATION_STATUS:\s*(PASS|FAIL)\b/i);
+        verificationPassed = statusMatch?.[1]?.toUpperCase() === "PASS";
+      }
+      const resultStatus = verificationPassed ? "SUCCEEDED" : "FAILED";
+      const final = [
+        "Step 1: Selected specialist (" + selectedRole + ")\n" + selectedResult,
+        "Step 2: Verify\n" + verification,
+        verificationPassed ? "Result: Verification passed based on explicit evidence." : "Result: Verification did not pass. Lumia will not report this task as completed."
+      ].join("\n\n");
+      await prisma.agentExecution.update({ where: { id: execution.id }, data: { status: resultStatus, result: final, toolCount, finishedAt: new Date() } });
+      await upsertProjectMemory(projectId, "execution", "last-result", final.slice(-12000));
+      return { text: final, toolCount, turns };
+    }
 
     const plan = await roleRun("planner", prompt);
     if (researchLike) {
